@@ -2,191 +2,148 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>💬 Chat WhatsApp — Mejorado</title>
+<title>💬 Chat WhatsApp Style</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
 <div id="chat-app">
-  <aside id="sidebar">
+  <div id="sidebar">
     <div id="sidebar-header">
-      <div class="title">Chats</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <img id="avatar-pill" src="default-avatar.png" alt="Tu avatar" class="pill-avatar">
-        <span id="currentName" class="pill" title="Tu nombre visible"></span>
-        <button id="btnChange" class="btn" title="Cambiar nombre">✏️</button>
-        <button id="btnAvatar" class="btn" title="Cambiar foto">📷</button>
-        <input type="file" id="avatarInput" accept="image/*" style="display:none" />
+      <span class="title">💬 Chat</span>
+      <div class="pill">
+        <img src="default-avatar.png" alt="avatar" class="pill-avatar" id="my-avatar">
+        <span id="pill-nickname">Usuario</span>
+        <button class="btn" id="change-nickname-btn">✎</button>
       </div>
     </div>
-    <input id="search-contact" placeholder="Buscar..." />
+    <input id="search-contact" placeholder="Buscar..."/>
     <ul id="chat-list"></ul>
     <button id="create-group-btn">Crear Grupo</button>
-  </aside>
-  <main id="chat-panel">
+  </div>
+
+  <div id="chat-panel">
     <div id="chat-header-panel">
       <span id="chat-title">General</span>
       <span id="typing-indicator"></span>
     </div>
     <ul id="messages"></ul>
     <div id="input-area">
-      <input id="message-input" placeholder="Escribe un mensaje..." autocomplete="off" />
-      <input type="file" id="image-input" accept="image/*" style="display:none" />
+      <input id="message-input" placeholder="Escribe un mensaje..." autocomplete="off"/>
+      <input type="file" id="image-input" accept="image/*" style="display:none"/>
       <button id="image-btn">📎</button>
       <button id="send-btn">➤</button>
     </div>
-  </main>
+  </div>
 </div>
 
 <!-- Modal nickname -->
 <div id="nickname-modal">
-  <input id="username" placeholder="Escribe tu nickname" />
+  <input id="username" placeholder="Escribe tu nickname"/>
+  <input type="file" id="avatar-input" accept="image/*" style="display:none"/>
   <button id="join-btn">Unirse</button>
+  <button id="upload-avatar-btn">Subir Avatar</button>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="notifications.js"></script>
 <script>
 const socket = io();
-
-let nickname = localStorage.getItem('nickname') || '';
-let avatar = localStorage.getItem('avatar') || 'default-avatar.png';
-let currentChat = 'public';
+let nickname = localStorage.getItem("nickname") || "";
+let avatar = localStorage.getItem("avatar") || "default-avatar.png";
+let currentChat = "public";
 let currentTarget = null;
 let allMessages = [];
 let unreadCounts = {};
 
-// Elementos
-const nicknameModal = document.getElementById('nickname-modal');
-const usernameInput = document.getElementById('username');
-const joinBtn = document.getElementById('join-btn');
-const messages = document.getElementById('messages');
-const messageInput = document.getElementById('message-input');
-const sendBtn = document.getElementById('send-btn');
-const typingIndicator = document.getElementById('typing-indicator');
-const chatList = document.getElementById('chat-list');
-const chatTitle = document.getElementById('chat-title');
-const createGroupBtn = document.getElementById('create-group-btn');
-const imageInput = document.getElementById('image-input');
-const imageBtn = document.getElementById('image-btn');
-const currentNameUI = document.getElementById('currentName');
-const avatarUI = document.getElementById('avatar-pill');
-const btnChange = document.getElementById('btnChange');
-const btnAvatar = document.getElementById('btnAvatar');
-const avatarInput = document.getElementById('avatarInput');
+const nicknameModal = document.getElementById("nickname-modal");
+const usernameInput = document.getElementById("username");
+const joinBtn = document.getElementById("join-btn");
+const messages = document.getElementById("messages");
+const messageInput = document.getElementById("message-input");
+const sendBtn = document.getElementById("send-btn");
+const typingIndicator = document.getElementById("typing-indicator");
+const chatList = document.getElementById("chat-list");
+const chatTitle = document.getElementById("chat-title");
+const createGroupBtn = document.getElementById("create-group-btn");
+const imageInput = document.getElementById("image-input");
+const imageBtn = document.getElementById("image-btn");
+const myAvatar = document.getElementById("my-avatar");
+const pillNickname = document.getElementById("pill-nickname");
+const changeNicknameBtn = document.getElementById("change-nickname-btn");
+const avatarInput = document.getElementById("avatar-input");
+const uploadAvatarBtn = document.getElementById("upload-avatar-btn");
 
-// Inicializar nombre y avatar
-function updateUINameAvatar(){
-  currentNameUI.textContent = nickname || 'Anónimo';
-  avatarUI.src = avatar;
-}
-updateUINameAvatar();
+myAvatar.src = avatar;
+pillNickname.textContent = nickname || "Usuario";
 
-// Cambiar nombre
-btnChange.addEventListener('click', ()=>{
-  const newName = prompt('Escribe tu nombre visible:', nickname);
-  if(newName){
-    nickname = newName.trim();
-    localStorage.setItem('nickname', nickname);
-    socket.emit('set nickname', nickname);
-    updateUINameAvatar();
-  }
-});
-
-// Cambiar avatar
-btnAvatar.addEventListener('click', ()=>avatarInput.click());
-avatarInput.addEventListener('change', ()=>{
-  const file = avatarInput.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ()=>{
-    avatar = reader.result;
-    localStorage.setItem('avatar', avatar);
-    updateUINameAvatar();
-  };
-  reader.readAsDataURL(file);
-});
-
-// Abrir selector de archivos imagen
-imageBtn.addEventListener('click', ()=>imageInput.click());
-imageInput.addEventListener('change', ()=>{
-  const file = imageInput.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ()=>{
-    const dataURL = reader.result;
-    if(currentChat === 'public') socket.emit('chat public',{type:'image',data:dataURL});
-    else if(currentChat === 'private') socket.emit('chat private',{target:currentTarget,text:'',type:'image',data:dataURL});
-    else if(currentChat === 'group') socket.emit('chat group',{groupName:currentTarget,text:'',type:'image',data:dataURL});
-  };
-  reader.readAsDataURL(file);
-});
-
-// Socket events
-socket.on('connect', ()=>{
-  if(nickname){
-    socket.emit('set nickname',nickname);
-    nicknameModal.style.display='none';
-  }else{
-    nicknameModal.style.display='flex';
-  }
-});
-
-joinBtn.addEventListener('click', ()=>{
-  const name = usernameInput.value.trim();
-  if(name){
-    nickname=name;
-    localStorage.setItem('nickname',nickname);
-    nicknameModal.style.display='none';
-    socket.emit('set nickname',nickname);
-    updateUINameAvatar();
-  }
-});
-
-sendBtn.addEventListener('click', ()=>{
-  const text = messageInput.value.trim();
-  if(!text || !nickname) return;
-  if(currentChat==='public') socket.emit('chat public',text);
-  else if(currentChat==='private') socket.emit('chat private',{target:currentTarget,text});
-  else if(currentChat==='group') socket.emit('chat group',{groupName:currentTarget,text});
-  messageInput.value='';
-});
-
-messageInput.addEventListener('keypress',e=>{if(e.key==='Enter') sendBtn.click();});
-messageInput.addEventListener('input',()=>{socket.emit('typing',{type:currentChat,target:currentTarget});});
-
-socket.on('typing',data=>{
-  if(data.name!==nickname){
-    typingIndicator.textContent=`${data.name} está escribiendo...`;
-    clearTimeout(window.typingTimeout);
-    window.typingTimeout=setTimeout(()=>typingIndicator.textContent='',2000);
-  }
-});
-
-// Mensajes y renderizado
+// Funciones comunes de chat
 function addMessage(msg){
-  const li=document.createElement('li');
-  li.className='message '+(msg.name===nickname?'you':'other');
-  let content=`<span class="name">${msg.name}</span>`;
-  if(msg.image) content+=`<img src="${msg.image}" class="chat-image" />`;
-  if(msg.text) content+=`<span class="text">${msg.text}</span>`;
-  content+=`<span class="time">${new Date(msg.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
-  li.innerHTML=content;
+  const li = document.createElement("li");
+  li.className = "message " + (msg.name===nickname?"you":"other");
+  let content = `<span class=\"name\">${msg.name}</span>`;
+  if(msg.image) content += `<img src=\"${msg.image}\" class=\"chat-image\"/>`;
+  if(msg.text) content += `<span class=\"text\">${msg.text}</span>`;
+  content += `<span class=\"time\">${new Date(msg.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
+  li.innerHTML = content;
   messages.appendChild(li);
-  messages.scrollTop=messages.scrollHeight;
+  messages.scrollTop = messages.scrollHeight;
 }
+
 function renderMessages(){
-  messages.innerHTML='';
-  allMessages.forEach(msg=>{
-    if(currentChat==='public' && msg.type==='public') addMessage(msg);
-    else if(currentChat==='private' && msg.type==='private' && ((msg.name===nickname && msg.target===currentTarget) || (msg.name===currentTarget && msg.target===nickname))) addMessage(msg);
-    else if(currentChat==='group' && msg.type==='group' && msg.target===currentTarget) addMessage(msg);
+  messages.innerHTML = "";
+  allMessages.forEach(msg => {
+    if(currentChat === "public" && msg.type === "public") addMessage(msg);
+    else if(currentChat === "private" && msg.type === "private"){
+      if((msg.name===nickname && msg.target===currentTarget) || (msg.name===currentTarget && msg.target===nickname)) addMessage(msg);
+    }
+    else if(currentChat === "group" && msg.type === "group" && msg.target === currentTarget) addMessage(msg);
   });
 }
 
-socket.on('chat history',history=>{allMessages=history;renderMessages();});
-socket.on('chat message',msg=>{allMessages.push(msg);renderMessages();});
+// Eventos de nickname y avatar
+imageBtn.addEventListener("click", () => imageInput.click());
+imageInput.addEventListener("change", () => {
+  const file = imageInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataURL = reader.result;
+    if(currentChat === "public") socket.emit("chat public", { type: "image", data: dataURL });
+    else if(currentChat === "private") socket.emit("chat private", { target: currentTarget, text: "", type: "image", data: dataURL });
+    else if(currentChat === "group") socket.emit("chat group", { groupName: currentTarget, text: "", type: "image", data: dataURL });
+  };
+  reader.readAsDataURL(file);
+  imageInput.value = "";
+});
 
+avatarInput.addEventListener("change", () => {
+  const file = avatarInput.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    avatar = reader.result;
+    localStorage.setItem("avatar", avatar);
+    myAvatar.src = avatar;
+  };
+  reader.readAsDataURL(file);
+});
+
+uploadAvatarBtn.addEventListener("click", () => avatarInput.click());
+changeNicknameBtn.addEventListener("click", () => { nicknameModal.style.display = "flex"; usernameInput.value = nickname; });
+joinBtn.addEventListener("click", () => {
+  const name = usernameInput.value.trim();
+  if(!name) return;
+  const oldNickname = nickname;
+  nickname = name;
+  localStorage.setItem("nickname", nickname);
+  pillNickname.textContent = nickname;
+  nicknameModal.style.display = "none";
+  socket.emit("set nickname", nickname);
+  socket.emit("update nickname", { oldNickname, newNickname: nickname });
+});
+
+// Aquí puedes agregar el resto de la lógica de mensajes, chats privados, grupos, typing, etc.
 </script>
+<script src="notifications.js"></script>
 </body>
 </html>
