@@ -36,6 +36,9 @@ body, html {
   border-radius:50px;
   font-size:14px;
   font-weight:bold;
+  display:flex;
+  align-items:center;
+  gap:6px;
 }
 .pill-avatar {
   width:32px;
@@ -89,6 +92,9 @@ body, html {
   object-fit:cover;
   border:1px solid #ccc;
 }
+.contact .contact-name {
+  font-weight:bold;
+}
 
 /* Chat Panel */
 #chat-panel {
@@ -104,6 +110,7 @@ body, html {
   font-weight:bold;
   display:flex;
   justify-content:space-between;
+  align-items:center;
 }
 #messages {
   flex:1;
