@@ -99,6 +99,14 @@ function renderMessages(){
   });
 }
 
+function addChatListItem(name, type){
+  const li = document.createElement("li");
+  li.textContent = name;
+  li.className = type;
+  li.addEventListener("click", () => selectChat(type, name));
+  chatList.appendChild(li);
+}
+
 socket.on("connect", () => {
   if(nickname){
     socket.emit("set nickname", nickname);
@@ -113,31 +121,23 @@ socket.on("chat message", msg => { allMessages.push(msg); renderMessages(); });
 
 socket.on("user list", users => {
   chatList.innerHTML = "";
+  addChatListItem("General", "public");
   users.forEach(user => {
-    const li = document.createElement("li");
-    li.textContent = user;
-    li.className = "contact";
-    li.addEventListener("click", () => selectChat("private", user));
-    chatList.appendChild(li);
+    if(user !== nickname) addChatListItem(user, "contact");
   });
 });
 
 socket.on("group list", groups => {
-  groups.forEach(group => {
-    const li = document.createElement("li");
-    li.textContent = group;
-    li.className = "group";
-    li.addEventListener("click", () => selectChat("group", group));
-    chatList.appendChild(li);
-  });
+  groups.forEach(group => addChatListItem(group, "group"));
 });
 
 sendBtn.addEventListener("click", () => {
   const text = messageInput.value.trim();
   if(!text || !nickname) return;
-  if(currentChat === "public") socket.emit("chat public", { name: nickname, avatar, text, type: "public", time: Date.now() });
-  else if(currentChat === "private") socket.emit("chat private", { name: nickname, avatar, text, target: currentTarget, type: "private", time: Date.now() });
-  else if(currentChat === "group") socket.emit("chat group", { name: nickname, avatar, text, groupName: currentTarget, type: "group", time: Date.now() });
+  const msgObj = { name: nickname, avatar, text, time: Date.now() };
+  if(currentChat === "public") msgObj.type = "public", socket.emit("chat public", msgObj);
+  else if(currentChat === "private") msgObj.type = "private", msgObj.target = currentTarget, socket.emit("chat private", msgObj);
+  else if(currentChat === "group") msgObj.type = "group", msgObj.groupName = currentTarget, socket.emit("chat group", msgObj);
   messageInput.value="";
 });
 messageInput.addEventListener("keypress", e => { if(e.key==="Enter") sendBtn.click(); });
@@ -154,7 +154,10 @@ avatarInput.addEventListener("change", () => {
     avatar = reader.result;
     localStorage.setItem("avatar", avatar);
     myAvatar.src = avatar;
-    if(currentChat === "private" && currentTarget) chatTargetAvatar.src = avatar;
+    if(currentChat === "private" && currentTarget){
+      const msg = allMessages.find(m => m.name === currentTarget && m.avatar);
+      chatTargetAvatar.src = msg ? msg.avatar : 'default-avatar.png';
+    }
   };
   reader.readAsDataURL(file);
 });
