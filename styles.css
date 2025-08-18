@@ -114,9 +114,10 @@ body, html {
   border: 1px solid #ccc;
   outline: none;
 }
-#send-btn, #image-btn, #audio-btn {
+#send-btn, #image-btn, #audio-btn, #create-group-btn, #admin-btn {
   border: none;
-  background: none;
+  background: #075e54;
+  color: #fff;
   width: 36px;
   height: 36px;
   display: flex;
@@ -124,15 +125,12 @@ body, html {
   justify-content: center;
   cursor: pointer;
   border-radius: 50%;
+  margin: 0 5px;
 }
-#send-btn {
-  background: #075e54;
-  color: #fff;
+#send-btn:hover, #image-btn:hover, #audio-btn:hover, #create-group-btn:hover, #admin-btn:hover {
+  filter: brightness(1.1);
 }
-#send-btn:hover, #image-btn:hover, #audio-btn:hover {
-  background: rgba(0,0,0,0.05);
-}
-#nickname-modal, #admin-modal {
+#nickname-modal, #admin-modal, #group-modal {
   position: fixed;
   top: 0;
   left: 0;
@@ -145,13 +143,13 @@ body, html {
   flex-direction: column;
   gap: 10px;
 }
-#nickname-modal input, #admin-modal input {
+#nickname-modal input, #admin-modal input, #group-modal input {
   padding: 10px 12px;
   border-radius: 20px;
   border: 1px solid #ccc;
   outline: none;
 }
-#nickname-modal button, #admin-modal button {
+#nickname-modal button, #admin-modal button, #group-modal button {
   padding: 10px 16px;
   border: none;
   background: #075e54;
@@ -159,7 +157,7 @@ body, html {
   border-radius: 20px;
   cursor: pointer;
 }
-#nickname-modal button:hover, #admin-modal button:hover {
+#nickname-modal button:hover, #admin-modal button:hover, #group-modal button:hover {
   filter: brightness(1.1);
 }
 .unread-badge {
@@ -184,4 +182,16 @@ body, html {
   text-decoration: underline black;
   font-weight: bold;
   margin-left: 5px;
+}
+#user-list {
+  background: #fff;
+  padding: 10px;
+  border-radius: 10px;
+  width: 300px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+#user-list label {
+  DISPLAY: block;
+  padding: 5px;
 }
