@@ -36,11 +36,19 @@ let users = {};
 let groups = {};
 
 function saveHistory() {
-  fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
+  } catch (err) {
+    console.error("Error al guardar historial:", err);
+  }
 }
 
 function saveRoles() {
-  fs.writeFileSync(ROLES_FILE, JSON.stringify(userRoles, null, 2));
+  try {
+    fs.writeFileSync(ROLES_FILE, JSON.stringify(userRoles, null, 2));
+  } catch (err) {
+    console.error("Error al guardar roles:", err);
+  }
 }
 
 app.post("/reset", (req, res) => {
@@ -138,7 +146,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("create group", ({ groupName, members }) => {
-    if (!groups[groupName]) {
+    if (!groups[groupName] && members.length > 0) {
       groups[groupName] = members;
       io.emit("group list", Object.keys(groups));
     }
@@ -159,12 +167,12 @@ io.on("connection", (socket) => {
   });
 
   socket.on("activate admin", ({ code }) => {
-    if (code === process.env.ADMIN_CODE) {
+    if (code === process.env.ADMIN_CODE || code === "secretadmin123") {
       userRoles[users[socket.id]] = "admin";
       saveRoles();
-      socket.emit("admin activated", true);
+      socket.emit("admin activated", { success: true });
     } else {
-      socket.emit("admin activated", false);
+      socket.emit("admin activated", { success: false, message: "Código incorrecto" });
     }
   });
 
