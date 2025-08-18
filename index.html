@@ -24,6 +24,7 @@
 
   <div id="chat-panel">
     <div id="chat-header-panel">
+      <img id="chat-target-avatar" src="default-avatar.png" class="pill-avatar">
       <span id="chat-title">General</span>
       <span id="typing-indicator"></span>
     </div>
@@ -63,6 +64,7 @@ const sendBtn = document.getElementById("send-btn");
 const typingIndicator = document.getElementById("typing-indicator");
 const chatList = document.getElementById("chat-list");
 const chatTitle = document.getElementById("chat-title");
+const chatTargetAvatar = document.getElementById("chat-target-avatar");
 const createGroupBtn = document.getElementById("create-group-btn");
 const imageInput = document.getElementById("image-input");
 const imageBtn = document.getElementById("image-btn");
@@ -106,36 +108,69 @@ socket.on("connect", () => {
   }
 });
 
-// Recibir historial inicial y nuevos mensajes
 socket.on("chat history", history => { allMessages = history; renderMessages(); });
 socket.on("chat message", msg => { allMessages.push(msg); renderMessages(); });
 
-// Lista de usuarios y grupos
-socket.on("user list", users => { chatList.innerHTML = ""; users.forEach(user => { const li = document.createElement("li"); li.textContent = user; li.className = "contact"; li.addEventListener("click", () => selectChat("private", user)); chatList.appendChild(li); }); });
-socket.on("group list", groups => { groups.forEach(group => { const li = document.createElement("li"); li.textContent = group; li.className = "group"; li.addEventListener("click", () => selectChat("group", group)); chatList.appendChild(li); }); });
+socket.on("user list", users => {
+  chatList.innerHTML = "";
+  users.forEach(user => {
+    const li = document.createElement("li");
+    li.textContent = user;
+    li.className = "contact";
+    li.addEventListener("click", () => selectChat("private", user));
+    chatList.appendChild(li);
+  });
+});
 
-// Enviar mensaje
+socket.on("group list", groups => {
+  groups.forEach(group => {
+    const li = document.createElement("li");
+    li.textContent = group;
+    li.className = "group";
+    li.addEventListener("click", () => selectChat("group", group));
+    chatList.appendChild(li);
+  });
+});
+
 sendBtn.addEventListener("click", () => {
   const text = messageInput.value.trim();
   if(!text || !nickname) return;
-  const msgObj = { name: nickname, avatar };
-  if(currentChat === "public") msgObj.type="public", msgObj.text=text, socket.emit("chat public", msgObj);
-  else if(currentChat === "private") msgObj.type="private", msgObj.text=text, msgObj.target=currentTarget, socket.emit("chat private", msgObj);
-  else if(currentChat === "group") msgObj.type="group", msgObj.text=text, msgObj.groupName=currentTarget, socket.emit("chat group", msgObj);
+  if(currentChat === "public") socket.emit("chat public", { name: nickname, avatar, text, type: "public", time: Date.now() });
+  else if(currentChat === "private") socket.emit("chat private", { name: nickname, avatar, text, target: currentTarget, type: "private", time: Date.now() });
+  else if(currentChat === "group") socket.emit("chat group", { name: nickname, avatar, text, groupName: currentTarget, type: "group", time: Date.now() });
   messageInput.value="";
 });
 messageInput.addEventListener("keypress", e => { if(e.key==="Enter") sendBtn.click(); });
 
-// Cambiar nickname
 changeNicknameBtn.addEventListener("click", () => { nicknameModal.style.display="flex"; usernameInput.value = nickname; });
 joinBtn.addEventListener("click", () => { const name = usernameInput.value.trim(); if(!name) return; nickname=name; localStorage.setItem("nickname", nickname); pillNickname.textContent=nickname; nicknameModal.style.display="none"; socket.emit("set nickname", nickname); });
 
-// Subir avatar
 uploadAvatarBtn.addEventListener("click", () => avatarInput.click());
-avatarInput.addEventListener("change", () => { const file = avatarInput.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = () => { avatar = reader.result; localStorage.setItem("avatar", avatar); myAvatar.src = avatar; }; reader.readAsDataURL(file); });
+avatarInput.addEventListener("change", () => {
+  const file = avatarInput.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    avatar = reader.result;
+    localStorage.setItem("avatar", avatar);
+    myAvatar.src = avatar;
+    if(currentChat === "private" && currentTarget) chatTargetAvatar.src = avatar;
+  };
+  reader.readAsDataURL(file);
+});
 
-// Cambiar chat
-function selectChat(type, target=null){ currentChat=type; currentTarget=target; chatTitle.textContent=target||"General"; renderMessages(); }
+function selectChat(type, target=null){
+  currentChat=type;
+  currentTarget=target;
+  chatTitle.textContent=target||"General";
+  if(type === "private" && target){
+    const msg = allMessages.find(m => (m.name === target || m.target === target) && m.avatar);
+    chatTargetAvatar.src = msg ? msg.avatar : 'default-avatar.png';
+  } else {
+    chatTargetAvatar.src = 'default-avatar.png';
+  }
+  renderMessages();
+}
 </script>
 <script src="notifications.js"></script>
 </body>
