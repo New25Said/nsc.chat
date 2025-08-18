@@ -77,6 +77,7 @@ const uploadAvatarBtn = document.getElementById("upload-avatar-btn");
 myAvatar.src = avatar;
 pillNickname.textContent = nickname || "Usuario";
 
+// --- Función para agregar mensajes ---
 function addMessage(msg){
   const li = document.createElement("li");
   li.className = "message " + (msg.name === nickname ? "you" : "other");
@@ -89,6 +90,7 @@ function addMessage(msg){
   messages.scrollTop = messages.scrollHeight;
 }
 
+// --- Renderizar mensajes según chat ---
 function renderMessages(){
   messages.innerHTML = "";
   allMessages.forEach(msg => {
@@ -99,6 +101,7 @@ function renderMessages(){
   });
 }
 
+// --- Agregar item a la lista de chats ---
 function addChatListItem(name, type){
   const li = document.createElement("li");
   li.textContent = name;
@@ -107,6 +110,7 @@ function addChatListItem(name, type){
   chatList.appendChild(li);
 }
 
+// --- Socket Events ---
 socket.on("connect", () => {
   if(nickname){
     socket.emit("set nickname", nickname);
@@ -117,34 +121,50 @@ socket.on("connect", () => {
 });
 
 socket.on("chat history", history => { allMessages = history; renderMessages(); });
-socket.on("chat message", msg => { allMessages.push(msg); renderMessages(); });
+
+socket.on("chat message", msg => {
+  allMessages.push(msg);
+  renderMessages();
+});
 
 socket.on("user list", users => {
   chatList.innerHTML = "";
-  addChatListItem("General", "public");
+  addChatListItem("General", "public"); // Siempre mostrar chat público
   users.forEach(user => {
     if(user !== nickname) addChatListItem(user, "contact");
   });
 });
 
-socket.on("group list", groups => {
-  groups.forEach(group => addChatListItem(group, "group"));
-});
+socket.on("group list", groups => { groups.forEach(group => addChatListItem(group, "group")); });
 
+// --- Enviar mensaje ---
 sendBtn.addEventListener("click", () => {
   const text = messageInput.value.trim();
-  if(!text || !nickname) return;
+  if(!nickname || (!text && !imageInput.files[0])) return;
+
   const msgObj = { name: nickname, avatar, text, time: Date.now() };
-  if(currentChat === "public") msgObj.type = "public", socket.emit("chat public", msgObj);
-  else if(currentChat === "private") msgObj.type = "private", msgObj.target = currentTarget, socket.emit("chat private", msgObj);
-  else if(currentChat === "group") msgObj.type = "group", msgObj.groupName = currentTarget, socket.emit("chat group", msgObj);
+
+  if(currentChat === "public") socket.emit("chat public", msgObj);
+  else if(currentChat === "private") { msgObj.target = currentTarget; socket.emit("chat private", msgObj); }
+  else if(currentChat === "group") { msgObj.groupName = currentTarget; socket.emit("chat group", msgObj); }
+
   messageInput.value="";
 });
 messageInput.addEventListener("keypress", e => { if(e.key==="Enter") sendBtn.click(); });
 
+// --- Cambiar nickname ---
 changeNicknameBtn.addEventListener("click", () => { nicknameModal.style.display="flex"; usernameInput.value = nickname; });
-joinBtn.addEventListener("click", () => { const name = usernameInput.value.trim(); if(!name) return; nickname=name; localStorage.setItem("nickname", nickname); pillNickname.textContent=nickname; nicknameModal.style.display="none"; socket.emit("set nickname", nickname); });
+joinBtn.addEventListener("click", () => {
+  const name = usernameInput.value.trim();
+  if(!name) return;
+  nickname=name;
+  localStorage.setItem("nickname", nickname);
+  pillNickname.textContent=nickname;
+  nicknameModal.style.display="none";
+  socket.emit("set nickname", nickname);
+});
 
+// --- Avatar ---
 uploadAvatarBtn.addEventListener("click", () => avatarInput.click());
 avatarInput.addEventListener("change", () => {
   const file = avatarInput.files[0];
@@ -162,10 +182,12 @@ avatarInput.addEventListener("change", () => {
   reader.readAsDataURL(file);
 });
 
+// --- Seleccionar chat ---
 function selectChat(type, target=null){
   currentChat=type;
   currentTarget=target;
   chatTitle.textContent=target||"General";
+
   if(type === "private" && target){
     const msg = allMessages.find(m => (m.name === target || m.target === target) && m.avatar);
     chatTargetAvatar.src = msg ? msg.avatar : 'default-avatar.png';
