@@ -11,6 +11,11 @@ const adminBtn = document.getElementById('admin-btn');
 const adminModal = document.getElementById('admin-modal');
 const adminCode = document.getElementById('admin-code');
 const submitAdmin = document.getElementById('submit-admin');
+const createGroupBtn = document.getElementById('create-group-btn');
+const groupModal = document.getElementById('group-modal');
+const groupNameInput = document.getElementById('group-name');
+const userList = document.getElementById('user-list');
+const submitGroup = document.getElementById('submit-group');
 let nickname = '';
 let mediaRecorder;
 let audioChunks = [];
@@ -31,6 +36,8 @@ joinBtn.addEventListener('click', () => {
     localStorage.setItem('nickname', nickname);
     socket.emit('set nickname', nickname);
     nicknameModal.style.display = 'none';
+  } else {
+    alert('Por favor, ingresa un apodo válido');
   }
 });
 
@@ -61,13 +68,18 @@ imageBtn.addEventListener('click', () => {
 
 audioBtn.addEventListener('click', async () => {
   if (!isRecording) {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.start();
-    audioChunks = [];
-    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-    audioBtn.textContent = '⏹️';
-    isRecording = true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.start();
+      audioChunks = [];
+      mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+      audioBtn.textContent = '⏹️';
+      isRecording = true;
+    } catch (err) {
+      alert('No se pudo acceder al micrófono. Por favor, verifica los permisos.');
+      console.error('Error en audio:', err);
+    }
   } else {
     mediaRecorder.stop();
     mediaRecorder.onstop = async () => {
@@ -93,6 +105,35 @@ submitAdmin.addEventListener('click', () => {
   adminCode.value = '';
 });
 
+createGroupBtn.addEventListener('click', () => {
+  groupModal.style.display = 'flex';
+  socket.emit('request user list');
+});
+
+submitGroup.addEventListener('click', () => {
+  const groupName = groupNameInput.value.trim();
+  const selectedUsers = Array.from(userList.querySelectorAll('input:checked')).map(input => input.value);
+  if (groupName && selectedUsers.length > 0) {
+    socket.emit('create group', { groupName, members: selectedUsers });
+    groupModal.style.display = 'none';
+    groupNameInput.value = '';
+    userList.innerHTML = '';
+  } else {
+    alert('Por favor, ingresa un nombre de grupo y selecciona al menos un miembro');
+  }
+});
+
+socket.on('user list', (users) => {
+  userList.innerHTML = '';
+  users.forEach(user => {
+    if (user !== nickname) {
+      const label = document.createElement('label');
+      label.innerHTML = `<input type="checkbox" value="${user}"> ${user}`;
+      userList.appendChild(label);
+    }
+  });
+});
+
 socket.on('chat message', (msg) => {
   displayMessage(msg);
 });
@@ -101,12 +142,19 @@ socket.on('chat history', (history) => {
   history.forEach(displayMessage);
 });
 
-socket.on('admin activated', (isAdmin) => {
-  if (isAdmin) {
-    alert('¡Admin activado!');
-  } else {
-    alert('Código incorrecto');
-  }
+socket.on('admin activated', ({ success, message }) => {
+  alert(success ? '¡Admin activado!' : message || 'Código incorrecto');
+});
+
+socket.on('group list', (groups) => {
+  const chatList = document.getElementById('chat-list');
+  chatList.innerHTML = '<li class="public">General</li>';
+  groups.forEach(group => {
+    const li = document.createElement('li');
+    li.classList.add('group');
+    li.textContent = group;
+    chatList.appendChild(li);
+  });
 });
 
 function displayMessage(msg) {
