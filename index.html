@@ -76,19 +76,20 @@ const uploadAvatarBtn = document.getElementById("upload-avatar-btn");
 myAvatar.src = avatar;
 pillNickname.textContent = nickname || "Usuario";
 
-// Funciones comunes de chat
+// Función para agregar mensajes al DOM
 function addMessage(msg){
   const li = document.createElement("li");
   li.className = "message " + (msg.name===nickname?"you":"other");
-  let content = `<span class=\"name\">${msg.name}</span>`;
-  if(msg.image) content += `<img src=\"${msg.image}\" class=\"chat-image\"/>`;
-  if(msg.text) content += `<span class=\"text\">${msg.text}</span>`;
-  content += `<span class=\"time\">${new Date(msg.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
+  let content = `<img src='${msg.avatar || 'default-avatar.png'}' class='chat-image-mini'><span class='name'>${msg.name}</span>`;
+  if(msg.text) content += `<span class='text'>${msg.text}</span>`;
+  if(msg.image) content += `<img src='${msg.image}' class='chat-image'/>`;
+  content += `<span class='time'>${new Date(msg.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
   li.innerHTML = content;
   messages.appendChild(li);
   messages.scrollTop = messages.scrollHeight;
 }
 
+// Renderizar mensajes filtrando por chat
 function renderMessages(){
   messages.innerHTML = "";
   allMessages.forEach(msg => {
@@ -100,17 +101,27 @@ function renderMessages(){
   });
 }
 
-// Eventos de nickname y avatar
+// Cargar nickname guardado al iniciar
+socket.on("connect", () => {
+  if(nickname){
+    socket.emit("set nickname", nickname);
+    nicknameModal.style.display = "none";
+  } else {
+    nicknameModal.style.display = "flex";
+  }
+});
+
+// Manejo de avatar y nickname
 imageBtn.addEventListener("click", () => imageInput.click());
 imageInput.addEventListener("change", () => {
   const file = imageInput.files[0];
-  if (!file) return;
+  if(!file) return;
   const reader = new FileReader();
   reader.onload = () => {
     const dataURL = reader.result;
-    if(currentChat === "public") socket.emit("chat public", { type: "image", data: dataURL });
-    else if(currentChat === "private") socket.emit("chat private", { target: currentTarget, text: "", type: "image", data: dataURL });
-    else if(currentChat === "group") socket.emit("chat group", { groupName: currentTarget, text: "", type: "image", data: dataURL });
+    if(currentChat === "public") socket.emit("chat public", { type: "image", data: dataURL, avatar, name: nickname });
+    else if(currentChat === "private") socket.emit("chat private", { target: currentTarget, text: "", type: "image", data: dataURL, avatar, name: nickname });
+    else if(currentChat === "group") socket.emit("chat group", { groupName: currentTarget, text: "", type: "image", data: dataURL, avatar, name: nickname });
   };
   reader.readAsDataURL(file);
   imageInput.value = "";
@@ -139,10 +150,9 @@ joinBtn.addEventListener("click", () => {
   pillNickname.textContent = nickname;
   nicknameModal.style.display = "none";
   socket.emit("set nickname", nickname);
-  socket.emit("update nickname", { oldNickname, newNickname: nickname });
 });
 
-// Aquí puedes agregar el resto de la lógica de mensajes, chats privados, grupos, typing, etc.
+// Aquí agregar el resto de la lógica de mensajes, usuarios, grupos y notificaciones
 </script>
 <script src="notifications.js"></script>
 </body>
