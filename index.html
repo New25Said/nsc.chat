@@ -20,9 +20,15 @@
     <div id="chat-panel">
       <div id="chat-header-panel">General</div>
       <div id="messages"></div>
+      <div id="preview-area" style="display:none; padding:10px; background:#f0f0f0; border-top:1px solid #ccc;">
+        <img id="preview-img" style="max-height:100px;">
+        <button id="send-preview">Enviar</button>
+        <button id="cancel-preview">Cancelar</button>
+      </div>
       <div id="input-area">
         <button id="image-btn">📎</button>
         <button id="audio-btn">🎤</button>
+        <button id="sticker-btn">😀</button>
         <input id="message-input" type="text" placeholder="Escribe un mensaje...">
         <button id="send-btn">➤</button>
       </div>
@@ -43,6 +49,11 @@
     <input id="group-name" type="text" placeholder="Nombre del grupo">
     <div id="user-list" style="max-height:200px; overflow-y:auto;"></div>
     <button id="submit-group">Crear</button>
+  </div>
+
+  <div id="sticker-modal" style="display:none;">
+    <div id="sticker-list" style="display:flex; flex-wrap:wrap; max-height:300px; overflow-y:auto;"></div>
+    <button id="upload-sticker">Subir sticker</button>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
