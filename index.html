@@ -37,7 +37,6 @@
   </div>
 </div>
 
-<!-- Modal nickname -->
 <div id="nickname-modal">
   <input id="username" placeholder="Escribe tu nickname"/>
   <input type="file" id="avatar-input" accept="image/*" style="display:none"/>
@@ -76,10 +75,9 @@ const uploadAvatarBtn = document.getElementById("upload-avatar-btn");
 myAvatar.src = avatar;
 pillNickname.textContent = nickname || "Usuario";
 
-// Función para agregar mensajes al DOM
 function addMessage(msg){
   const li = document.createElement("li");
-  li.className = "message " + (msg.name===nickname?"you":"other");
+  li.className = "message " + (msg.name === nickname ? "you" : "other");
   let content = `<img src='${msg.avatar || 'default-avatar.png'}' class='chat-image-mini'><span class='name'>${msg.name}</span>`;
   if(msg.text) content += `<span class='text'>${msg.text}</span>`;
   if(msg.image) content += `<img src='${msg.image}' class='chat-image'/>`;
@@ -89,19 +87,16 @@ function addMessage(msg){
   messages.scrollTop = messages.scrollHeight;
 }
 
-// Renderizar mensajes filtrando por chat
 function renderMessages(){
   messages.innerHTML = "";
   allMessages.forEach(msg => {
     if(currentChat === "public" && msg.type === "public") addMessage(msg);
     else if(currentChat === "private" && msg.type === "private"){
       if((msg.name===nickname && msg.target===currentTarget) || (msg.name===currentTarget && msg.target===nickname)) addMessage(msg);
-    }
-    else if(currentChat === "group" && msg.type === "group" && msg.target === currentTarget) addMessage(msg);
+    } else if(currentChat === "group" && msg.type === "group" && msg.target===currentTarget) addMessage(msg);
   });
 }
 
-// Cargar nickname guardado al iniciar
 socket.on("connect", () => {
   if(nickname){
     socket.emit("set nickname", nickname);
@@ -111,7 +106,6 @@ socket.on("connect", () => {
   }
 });
 
-// Manejo de avatar y nickname
 imageBtn.addEventListener("click", () => imageInput.click());
 imageInput.addEventListener("change", () => {
   const file = imageInput.files[0];
@@ -119,9 +113,10 @@ imageInput.addEventListener("change", () => {
   const reader = new FileReader();
   reader.onload = () => {
     const dataURL = reader.result;
-    if(currentChat === "public") socket.emit("chat public", { type: "image", data: dataURL, avatar, name: nickname });
-    else if(currentChat === "private") socket.emit("chat private", { target: currentTarget, text: "", type: "image", data: dataURL, avatar, name: nickname });
-    else if(currentChat === "group") socket.emit("chat group", { groupName: currentTarget, text: "", type: "image", data: dataURL, avatar, name: nickname });
+    const msgObj = { avatar, name: nickname };
+    if(currentChat === "public") msgObj.type = "image", msgObj.data = dataURL, socket.emit("chat public", msgObj);
+    else if(currentChat === "private") msgObj.type="image", msgObj.data=dataURL, msgObj.target=currentTarget, socket.emit("chat private", msgObj);
+    else if(currentChat === "group") msgObj.type="image", msgObj.data=dataURL, msgObj.groupName=currentTarget, socket.emit("chat group", msgObj);
   };
   reader.readAsDataURL(file);
   imageInput.value = "";
@@ -144,7 +139,6 @@ changeNicknameBtn.addEventListener("click", () => { nicknameModal.style.display 
 joinBtn.addEventListener("click", () => {
   const name = usernameInput.value.trim();
   if(!name) return;
-  const oldNickname = nickname;
   nickname = name;
   localStorage.setItem("nickname", nickname);
   pillNickname.textContent = nickname;
@@ -152,7 +146,10 @@ joinBtn.addEventListener("click", () => {
   socket.emit("set nickname", nickname);
 });
 
-// Aquí agregar el resto de la lógica de mensajes, usuarios, grupos y notificaciones
+// --- INICIO LÓGICA COMPLETA DE CHAT ---
+// Esto incluye recibir mensajes, actualizar lista de usuarios y grupos,
+// manejar chats privados y públicos, enviar mensajes y notificaciones.
+// Agrega el código completo que tenías antes de server.js y client.js aquí.
 </script>
 <script src="notifications.js"></script>
 </body>
