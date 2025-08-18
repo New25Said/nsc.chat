@@ -22,7 +22,7 @@
     </div>
     <div id="chat-panel">
       <div id="chat-header-panel">
-        <span>General</span>
+        <span id="chat-title">General</span>
         <button id="code-btn" class="code-button">Admin</button>
       </div>
       <div id="messages"></div>
@@ -39,5 +39,79 @@
   </div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
   <script src="notifications.js"></script>
+  <script>
+    // Conexión al servidor Socket.IO
+    const socket = io();
+
+    // Mostrar modal de nickname al cargar
+    document.getElementById('nickname-modal').style.display = 'flex';
+
+    // Unirse al chat
+    document.getElementById('join-btn').addEventListener('click', () => {
+      const nickname = document.getElementById('nickname-input').value.trim();
+      if (nickname) {
+        socket.emit('set nickname', nickname);
+        document.getElementById('nickname-modal').style.display = 'none';
+      }
+    });
+
+    // Enviar mensaje público
+    document.getElementById('send-btn').addEventListener('click', () => {
+      const msg = document.getElementById('message-input').value.trim();
+      if (msg) {
+        socket.emit('chat public', msg);
+        document.getElementById('message-input').value = '';
+      }
+    });
+
+    // Crear grupo
+    document.getElementById('create-group-btn').addEventListener('click', () => {
+      const groupName = document.getElementById('group-name').value.trim();
+      const membersInput = document.getElementById('group-members').value.trim();
+      const members = membersInput.split(',').map(m => m.trim()).filter(m => m);
+      if (groupName && members.length > 0) {
+        socket.emit('create group', { groupName, members });
+        document.getElementById('group-name').value = '';
+        document.getElementById('group-members').value = '';
+      }
+    });
+
+    // Mostrar mensajes
+    socket.on('chat message', (msg) => {
+      const messagesDiv = document.getElementById('messages');
+      const messageDiv = document.createElement('div');
+      messageDiv.classList.add('message', msg.id === socket.id ? 'you' : 'other');
+      messageDiv.innerHTML = `
+        <span class="name">${msg.name} <span class="code-button">${msg.code || ''}</span></span>
+        <span class="text">${msg.text || ''}</span>
+        ${msg.image ? `<img src="${msg.image}" class="chat-image">` : ''}
+        <span class="time">${new Date(msg.time).toLocaleTimeString()}</span>
+      `;
+      messagesDiv.appendChild(messageDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+
+    // Actualizar lista de usuarios
+    socket.on('user list', (userList) => {
+      // Aquí podrías actualizar la UI con la lista de usuarios si lo deseas
+    });
+
+    // Actualizar lista de grupos
+    socket.on('group list', (groupList) => {
+      const chatList = document.getElementById('chat-list');
+      chatList.innerHTML = '<li class="public">General</li>';
+      groupList.forEach(group => {
+        const li = document.createElement('li');
+        li.classList.add('group');
+        li.textContent = group;
+        chatList.appendChild(li);
+      });
+    });
+
+    // Indicador de escritura
+    socket.on('typing', ({ name, type, target }) => {
+      console.log(`${name} está escribiendo en ${type}: ${target || 'público'}`);
+    });
+  </script>
 </body>
 </html>
