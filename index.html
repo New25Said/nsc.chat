@@ -12,10 +12,10 @@
     <div id="sidebar-header">💬 Chat</div>
     <input id="search-contact" placeholder="Buscar..."/>
     <ul id="chat-list"></ul>
-<div id="sidebar-buttons">
-  <button id="admin-code-btn">Ingresar Código ADMIN</button>
-  <button id="create-group-btn">Crear Grupo</button>
-</div>
+    <div id="sidebar-buttons">
+      <button id="admin-code-btn">Ingresar Código ADMIN</button>
+      <button id="create-group-btn">Crear Grupo</button>
+    </div>
   </div>
 
   <div id="chat-panel">
@@ -64,7 +64,7 @@ const imageInput = document.getElementById("image-input");
 const imageBtn = document.getElementById("image-btn");
 const adminBtn = document.getElementById("admin-code-btn");
 
-// Sonido de notificación
+// Sonido de notificación (estilo antiguo)
 const notificationSound = new Audio("https://ia801505.us.archive.org/10/items/hangouts_sfx/hangouts_message.mp3");
 
 // Imagen
@@ -144,10 +144,11 @@ socket.on("chat history", history=>{
   allMessages = history;
   renderMessages();
 });
+
 socket.on("chat message", msg=>{
   allMessages.push(msg);
 
-  // Notificación sonora
+  // Sonido de notificación solo si la pestaña está oculta y no es tu mensaje
   if(msg.name !== nickname && document.hidden){
     notificationSound.play().catch(()=>{});
   }
@@ -270,9 +271,7 @@ function selectChat(type, target=null){
   }
   renderMessages();
 }
-
-</script> 
-
+</script>
 
 <style>
 .badge-admin {
