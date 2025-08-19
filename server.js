@@ -12,6 +12,7 @@ app.use(express.static(path.join(__dirname)));
 app.use(express.json());
 
 const HISTORY_FILE = path.join(__dirname, "chatHistory.json");
+const ADMINS_FILE = path.join(__dirname, "admins.json");
 
 // Historial
 let chatHistory = [];
@@ -23,13 +24,28 @@ if (fs.existsSync(HISTORY_FILE)) {
   }
 }
 
-// Usuarios, grupos y admins
+// Admins persistentes
+let admins = {};
+if (fs.existsSync(ADMINS_FILE)) {
+  try {
+    admins = JSON.parse(fs.readFileSync(ADMINS_FILE, "utf8"));
+  } catch (err) {
+    console.error("Error leyendo admins:", err);
+  }
+}
+
+// Usuarios y grupos
 let users = {}; // socket.id -> nickname
 let groups = {}; // groupName -> [nicknames]
-let admins = {}; // nickname -> true/false
 
+// Guardar historial
 function saveHistory() {
   fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
+}
+
+// Guardar admins
+function saveAdmins() {
+  fs.writeFileSync(ADMINS_FILE, JSON.stringify(admins, null, 2));
 }
 
 // Reset de chat y grupos
@@ -52,6 +68,12 @@ io.on("connection", (socket) => {
     io.emit("user list", Object.values(users));
     socket.emit("chat history", chatHistory);
     socket.emit("group list", Object.keys(groups));
+
+    // Enviar estado admin si corresponde
+    if (admins[nickname]) {
+      socket.emit("admin update", nickname);
+      console.log(`🔑 ${nickname} se reconecta como ADMIN`);
+    }
   });
 
   // Código ADMIN
@@ -60,6 +82,7 @@ io.on("connection", (socket) => {
     const nickname = users[socket.id];
     if (code === ADMIN_CODE && nickname) {
       admins[nickname] = true;
+      saveAdmins();
       io.emit("admin update", nickname);
       console.log(`✅ ${nickname} es ahora ADMIN`);
     }
