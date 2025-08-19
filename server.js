@@ -1,67 +1,139 @@
-body, html{margin:0;padding:0;height:100%;font-family:Arial,sans-serif}
-#chat-app{display:flex;height:100vh}
-#sidebar{width:280px;background:#f0f0f0;display:flex;flex-direction:column;border-right:1px solid #ccc}
-#sidebar-header{padding:15px;background:#075e54;color:#fff;font-weight:bold}
-#search-contact{margin:10px;padding:8px;border-radius:20px;border:1px solid #ccc;outline:none}
-#chat-list{flex:1;overflow-y:auto;list-style:none;padding:0;margin:0}
-#chat-list li{padding:10px 15px;cursor:pointer;border-bottom:1px solid #e6e6e6}
-#chat-list li.contact:hover,#chat-list li.group:hover,#chat-list li.public:hover{background:#e0e0e0;border-radius:5px}
-#chat-panel{flex:1;display:flex;flex-direction:column;background:#ece5dd}
-#chat-header-panel{padding:15px;background:#075e54;color:#fff;font-weight:bold;display:flex;justify-content:space-between}
-#messages{flex:1;overflow-y:auto;padding:15px;display:flex;flex-direction:column;gap:8px}
-.message{max-width:70%;padding:8px 12px;border-radius:12px;display:flex;flex-direction:column;gap:2px;box-shadow:0 1px 1px rgba(0,0,0,.1)}
-.message.you{align-self:flex-end;background:#dcf8c6;border-top-right-radius:4px}
-.message.other{align-self:flex-start;background:#fff;border-top-left-radius:4px}
-.message .name{font-weight:bold;font-size:13px;opacity:.8}
-.message .text{word-wrap:break-word;white-space:pre-wrap}
-.message .time{font-size:11px;color:#666;align-self:flex-end}
-#input-area{display:flex;padding:10px;background:#f0f0f0;border-top:1px solid #ccc}
-#message-input{flex:1;padding:10px;border-radius:20px;border:1px solid #ccc;outline:none}
-#send-btn{padding:0 16px;border:none;background:#075e54;color:#fff;border-radius:20px;cursor:pointer}
-#send-btn:hover{filter:brightness(1.1)}
-#nickname-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);display:none;justify-content:center;align-items:center;flex-direction:column;gap:10px}
-#nickname-modal input{padding:10px 12px;border-radius:20px;border:1px solid #ccc;outline:none}
-#nickname-modal button{padding:10px 16px;border:none;background:#075e54;color:#fff;border-radius:20px;cursor:pointer}
-#nickname-modal button:hover{filter:brightness(1.1)}
-.unread-badge {
-  display: inline-block;
-  background: red;
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-  border-radius: 50%;
-  padding: 2px 6px;
-  margin-left: 8px;
-}
-.chat-image {
-  max-width: 200px;
-  max-height: 200px;
-  border-radius: 12px;
-  margin-top: 4px;
-  object-fit: cover;
-}
-#image-btn {
-  border: none;
-  background: none;
-  width: 36px;      /* ancho fijo */
-  height: 36px;     /* alto fijo */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border-radius: 50%; /* opcional, que sea redondo */
-}
-#image-btn:hover {
-  background: rgba(0,0,0,0.05); /* ligero efecto al pasar mouse */
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const path = require("path");
+const fs = require("fs");
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+app.use(express.static(path.join(__dirname)));
+
+const HISTORY_FILE = path.join(__dirname, "chatHistory.json");
+
+// Cargar historial
+let chatHistory = { messages: [], groups: [] };
+if (fs.existsSync(HISTORY_FILE)) {
+  try {
+    chatHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
+  } catch (e) {
+    console.error("Error leyendo historial:", e);
+  }
 }
 
-/* === NUEVO: insignia ADMIN === */
-.admin-badge {
-  background: black;
-  color: red;
-  font-weight: bold;
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-left: 5px;
+// Guardar historial
+function saveHistory() {
+  fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
 }
+
+// Lista de usuarios conectados
+let users = {}; // socket.id -> { nickname, admin }
+
+io.on("connection", (socket) => {
+  console.log("Usuario conectado:", socket.id);
+
+  // Registro de nickname
+  socket.on("set nickname", (nickname) => {
+    users[socket.id] = { nickname, admin: false };
+    socket.broadcast.emit("user joined", nickname);
+    socket.emit("load history", chatHistory);
+  });
+
+  // Mensajes públicos
+  socket.on("chat message", (msg) => {
+    if (!users[socket.id]) return;
+    const user = users[socket.id];
+    const message = {
+      type: "public",
+      user: user.nickname,
+      text: msg,
+      time: new Date().toLocaleTimeString(),
+      admin: user.admin
+    };
+    chatHistory.messages.push(message);
+    saveHistory();
+    io.emit("chat message", message);
+  });
+
+  // Mensajes privados
+  socket.on("private message", ({ to, text }) => {
+    if (!users[socket.id]) return;
+    const user = users[socket.id];
+    const message = {
+      type: "private",
+      from: user.nickname,
+      to,
+      text,
+      time: new Date().toLocaleTimeString(),
+      admin: user.admin
+    };
+    chatHistory.messages.push(message);
+    saveHistory();
+    io.emit("private message", message);
+  });
+
+  // Grupos
+  socket.on("create group", (groupName) => {
+    if (!chatHistory.groups.includes(groupName)) {
+      chatHistory.groups.push(groupName);
+      saveHistory();
+      io.emit("group created", groupName);
+    }
+  });
+
+  socket.on("group message", ({ group, text }) => {
+    if (!users[socket.id]) return;
+    const user = users[socket.id];
+    const message = {
+      type: "group",
+      group,
+      user: user.nickname,
+      text,
+      time: new Date().toLocaleTimeString(),
+      admin: user.admin
+    };
+    chatHistory.messages.push(message);
+    saveHistory();
+    io.emit("group message", message);
+  });
+
+  // Evento: convertir en admin
+  socket.on("become admin", () => {
+    if (!users[socket.id]) return;
+    users[socket.id].admin = true;
+
+    // Avisar a todos que este usuario ahora es admin
+    io.emit("user admin", users[socket.id].nickname);
+  });
+
+  // Indicador de escritura
+  socket.on("typing", (isTyping) => {
+    if (users[socket.id]) {
+      socket.broadcast.emit("typing", {
+        user: users[socket.id].nickname,
+        isTyping,
+      });
+    }
+  });
+
+  // Desconexión
+  socket.on("disconnect", () => {
+    if (users[socket.id]) {
+      io.emit("user left", users[socket.id].nickname);
+      delete users[socket.id];
+    }
+  });
+});
+
+// Endpoint para resetear
+app.get("/reset", (req, res) => {
+  chatHistory = { messages: [], groups: [] };
+  saveHistory();
+  res.send("Historial y grupos reiniciados.");
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log("Servidor escuchando en puerto " + PORT);
+});
