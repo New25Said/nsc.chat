@@ -10,80 +10,69 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname)));
 
-// Archivo historial
 const HISTORY_FILE = path.join(__dirname, "chatHistory.json");
 
-// Cargar historial si existe
+// Cargar historial
 let chatHistory = [];
 if (fs.existsSync(HISTORY_FILE)) {
   try {
-    chatHistory = JSON.parse(fs.readFileSync(HISTORY_FILE));
+    chatHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
   } catch (err) {
     console.error("Error cargando historial:", err);
+    chatHistory = [];
   }
 }
 
 // Guardar historial
 function saveHistory() {
-  fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
+  fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2), "utf8");
 }
-
-// Usuarios conectados
-let users = {};
 
 io.on("connection", (socket) => {
   console.log("Usuario conectado:", socket.id);
 
-  // Enviar historial al nuevo
+  // Enviar historial al nuevo usuario
   socket.emit("chat history", chatHistory);
 
-  // Registrar nickname
+  // Guardar nickname
   socket.on("set nickname", (nickname) => {
-    users[socket.id] = { nickname, isAdmin: false };
-    io.emit("user list", Object.values(users));
+    socket.nickname = nickname;
   });
 
   // Activar admin
-  socket.on("activate admin", () => {
-    if (users[socket.id]) {
-      users[socket.id].isAdmin = true;
-      io.emit("user list", Object.values(users));
-    }
+  socket.on("set admin", () => {
+    socket.isAdmin = true;
+    io.emit("update user admin", { id: socket.id, isAdmin: true });
   });
 
-  // Mensajes
+  // Mensaje
   socket.on("chat message", (msg) => {
-    if (!users[socket.id]) return;
-
+    if (!socket.nickname) return;
     const messageData = {
-      nickname: users[socket.id].nickname,
-      isAdmin: users[socket.id].isAdmin,
-      message: msg,
-      time: new Date().toLocaleTimeString()
+      user: socket.nickname,
+      text: msg,
+      timestamp: new Date().toISOString(),
+      isAdmin: socket.isAdmin || false
     };
-
     chatHistory.push(messageData);
     saveHistory();
-
     io.emit("chat message", messageData);
   });
 
-  // Borrado de historial
+  // Resetear historial
   socket.on("reset history", () => {
     chatHistory = [];
     saveHistory();
-    io.emit("chat history", chatHistory);
+    io.emit("chat history", []);
   });
 
   // Desconexión
   socket.on("disconnect", () => {
     console.log("Usuario desconectado:", socket.id);
-    delete users[socket.id];
-    io.emit("user list", Object.values(users));
   });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Servidor escuchando en http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
