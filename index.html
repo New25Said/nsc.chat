@@ -2,136 +2,58 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>💬 Chat WhatsApp Style</title>
+  <title>💬 Chat Hangouts Style</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-  <div id="chat-app">
-    <div id="sidebar">
-      <div id="sidebar-header">💬 Chat</div>
-      <button id="admin-btn">Activar Admin</button>
-      <button id="group-btn">Crear Grupo</button>
-    </div>
 
-    <div id="chat-window">
-      <ul id="messages"></ul>
-      <form id="form" action="">
-        <input id="input" autocomplete="off" placeholder="Escribe un mensaje..." />
-        <button>Enviar</button>
-      </form>
-    </div>
+<div id="chat-app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-header">💬 Chat</div>
+    <button onclick="openModal('nicknameModal')">Cambiar nombre</button>
+    <button onclick="openModal('adminModal')">Ingresar código Admin</button>
+    <button onclick="openModal('groupModal')">Crear grupo</button>
   </div>
 
-  <!-- Modal Nickname -->
-  <div id="nickname-modal" class="modal">
-    <div class="modal-content">
-      <h2>Introduce tu nickname</h2>
-      <input id="nickname-input" type="text" placeholder="Tu nickname" />
-      <button id="nickname-submit">Entrar</button>
-    </div>
+  <!-- Chat window -->
+  <div id="chat-window">
+    <ul id="messages"></ul>
+    <form id="form" action="">
+      <input id="input" autocomplete="off" placeholder="Escribe un mensaje..."/>
+      <button>Enviar</button>
+    </form>
   </div>
+</div>
 
-  <!-- Modal Admin -->
-  <div id="admin-modal" class="modal">
-    <div class="modal-content">
-      <h2>Introduce código secreto</h2>
-      <input id="admin-code" type="password" placeholder="Código secreto" />
-      <button id="admin-submit">Activar</button>
-    </div>
+<!-- Modal Nickname -->
+<div id="nicknameModal" class="modal">
+  <div class="modal-content">
+    <h2>Ingresa tu nombre</h2>
+    <input type="text" id="nicknameInput" placeholder="Tu nombre">
+    <button onclick="setNickname()">Aceptar</button>
   </div>
+</div>
 
-  <!-- Modal Grupo -->
-  <div id="group-modal" class="modal">
-    <div class="modal-content">
-      <h2>Crear un grupo</h2>
-      <input id="group-name" type="text" placeholder="Nombre del grupo" />
-      <button id="group-submit">Crear</button>
-    </div>
+<!-- Modal Admin -->
+<div id="adminModal" class="modal">
+  <div class="modal-content">
+    <h2>Ingresa el código secreto</h2>
+    <input type="password" id="adminCodeInput" placeholder="Código secreto">
+    <button onclick="checkAdminCode()">Aceptar</button>
   </div>
+</div>
 
-  <script>
-    const socket = io();
+<!-- Modal Group -->
+<div id="groupModal" class="modal">
+  <div class="modal-content">
+    <h2>Crear un grupo</h2>
+    <input type="text" id="groupNameInput" placeholder="Nombre del grupo">
+    <button onclick="createGroup()">Crear</button>
+  </div>
+</div>
 
-    // Nickname
-    const nicknameModal = document.getElementById("nickname-modal");
-    const nicknameInput = document.getElementById("nickname-input");
-    const nicknameSubmit = document.getElementById("nickname-submit");
-
-    nicknameModal.style.display = "flex";
-    nicknameSubmit.onclick = () => {
-      const nickname = nicknameInput.value.trim();
-      if (nickname) {
-        socket.emit("set nickname", nickname);
-        nicknameModal.style.display = "none";
-      }
-    };
-
-    // Botón Admin
-    const adminBtn = document.getElementById("admin-btn");
-    const adminModal = document.getElementById("admin-modal");
-    const adminSubmit = document.getElementById("admin-submit");
-    const adminCode = document.getElementById("admin-code");
-
-    adminBtn.onclick = () => {
-      adminModal.style.display = "flex";
-    };
-
-    adminSubmit.onclick = () => {
-      if (adminCode.value === "1234") { // 🔑 cambia este código secreto
-        socket.emit("become admin");
-        adminModal.style.display = "none";
-        adminCode.value = "";
-      } else {
-        alert("Código incorrecto");
-      }
-    };
-
-    // Botón Grupo
-    const groupBtn = document.getElementById("group-btn");
-    const groupModal = document.getElementById("group-modal");
-    const groupSubmit = document.getElementById("group-submit");
-    const groupName = document.getElementById("group-name");
-
-    groupBtn.onclick = () => {
-      groupModal.style.display = "flex";
-    };
-
-    groupSubmit.onclick = () => {
-      const g = groupName.value.trim();
-      if (g) {
-        socket.emit("create group", g);
-        groupModal.style.display = "none";
-        groupName.value = "";
-      }
-    };
-
-    // Chat básico
-    const form = document.getElementById("form");
-    const input = document.getElementById("input");
-    const messages = document.getElementById("messages");
-
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      if (input.value) {
-        socket.emit("chat message", input.value);
-        input.value = "";
-      }
-    });
-
-    socket.on("chat message", (msg) => {
-      const item = document.createElement("li");
-      item.textContent = (msg.admin ? "[ADMIN] " : "") + msg.user + ": " + msg.text;
-      if (msg.admin) {
-        item.style.color = "red";
-        item.style.fontWeight = "bold";
-        item.style.background = "black";
-        item.style.padding = "2px 4px";
-        item.style.borderRadius = "4px";
-      }
-      messages.appendChild(item);
-      window.scrollTo(0, document.body.scrollHeight);
-    });
-  </script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
