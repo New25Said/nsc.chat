@@ -2,6 +2,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 const server = http.createServer(app);
@@ -9,61 +10,130 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname)));
 
-// Guardamos usuarios conectados
+const HISTORY_FILE = path.join(__dirname, "chatHistory.json");
+
+// Cargar historial
+let chatHistory = { messages: [], groups: [] };
+if (fs.existsSync(HISTORY_FILE)) {
+  try {
+    chatHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
+  } catch (e) {
+    console.error("Error leyendo historial:", e);
+  }
+}
+
+// Guardar historial
+function saveHistory() {
+  fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
+}
+
+// Lista de usuarios conectados
 let users = {}; // socket.id -> { nickname, admin }
 
 io.on("connection", (socket) => {
-  console.log("Un usuario se conectó:", socket.id);
+  console.log("Usuario conectado:", socket.id);
 
-  // Nickname
+  // Registro de nickname
   socket.on("set nickname", (nickname) => {
     users[socket.id] = { nickname, admin: false };
-    console.log(`Usuario ${nickname} conectado (${socket.id})`);
+    socket.broadcast.emit("user joined", nickname);
+    socket.emit("load history", chatHistory);
   });
 
-  // Activar admin
-  socket.on("become admin", () => {
-    if (users[socket.id]) {
-      users[socket.id].admin = true;
-      console.log(`${users[socket.id].nickname} ahora es ADMIN`);
-    }
+  // Mensajes públicos
+  socket.on("chat message", (msg) => {
+    if (!users[socket.id]) return;
+    const user = users[socket.id];
+    const message = {
+      type: "public",
+      user: user.nickname,
+      text: msg,
+      time: new Date().toLocaleTimeString(),
+      admin: user.admin
+    };
+    chatHistory.messages.push(message);
+    saveHistory();
+    io.emit("chat message", message);
   });
 
-  // Crear grupo
+  // Mensajes privados
+  socket.on("private message", ({ to, text }) => {
+    if (!users[socket.id]) return;
+    const user = users[socket.id];
+    const message = {
+      type: "private",
+      from: user.nickname,
+      to,
+      text,
+      time: new Date().toLocaleTimeString(),
+      admin: user.admin
+    };
+    chatHistory.messages.push(message);
+    saveHistory();
+    io.emit("private message", message);
+  });
+
+  // Grupos
   socket.on("create group", (groupName) => {
-    if (users[socket.id]) {
-      const msg = {
-        user: users[socket.id].nickname,
-        text: `ha creado el grupo "${groupName}"`,
-        admin: users[socket.id].admin,
-      };
-      io.emit("chat message", msg);
-      console.log(`Grupo creado: ${groupName} por ${users[socket.id].nickname}`);
+    if (!chatHistory.groups.includes(groupName)) {
+      chatHistory.groups.push(groupName);
+      saveHistory();
+      io.emit("group created", groupName);
     }
   });
 
-  // Mensaje de chat
-  socket.on("chat message", (text) => {
+  socket.on("group message", ({ group, text }) => {
+    if (!users[socket.id]) return;
+    const user = users[socket.id];
+    const message = {
+      type: "group",
+      group,
+      user: user.nickname,
+      text,
+      time: new Date().toLocaleTimeString(),
+      admin: user.admin
+    };
+    chatHistory.messages.push(message);
+    saveHistory();
+    io.emit("group message", message);
+  });
+
+  // Evento: convertir en admin
+  socket.on("become admin", () => {
+    if (!users[socket.id]) return;
+    users[socket.id].admin = true;
+
+    // Avisar a todos que este usuario ahora es admin
+    io.emit("user admin", users[socket.id].nickname);
+  });
+
+  // Indicador de escritura
+  socket.on("typing", (isTyping) => {
     if (users[socket.id]) {
-      const msg = {
+      socket.broadcast.emit("typing", {
         user: users[socket.id].nickname,
-        text,
-        admin: users[socket.id].admin,
-      };
-      io.emit("chat message", msg);
+        isTyping,
+      });
     }
   });
 
   // Desconexión
   socket.on("disconnect", () => {
     if (users[socket.id]) {
-      console.log(`Usuario ${users[socket.id].nickname} se desconectó`);
+      io.emit("user left", users[socket.id].nickname);
       delete users[socket.id];
     }
   });
 });
 
+// Endpoint para resetear
+app.get("/reset", (req, res) => {
+  chatHistory = { messages: [], groups: [] };
+  saveHistory();
+  res.send("Historial y grupos reiniciados.");
+});
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log("Servidor escuchando en puerto " + PORT);
 });
