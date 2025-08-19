@@ -56,7 +56,7 @@ io.on("connection", (socket) => {
 
   // Código ADMIN
   socket.on("set admin", (code) => {
-    const ADMIN_CODE = "1234-ABC"; // <-- tu código secreto
+    const ADMIN_CODE = "coolkid-admin"; // <-- tu código secreto
     const nickname = users[socket.id];
     if (code === ADMIN_CODE && nickname) {
       admins[nickname] = true;
