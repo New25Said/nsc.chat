@@ -13,15 +13,13 @@
     <input id="search-contact" placeholder="Buscar..."/>
     <ul id="chat-list"></ul>
     <button id="create-group-btn">Crear Grupo</button>
+    <button id="admin-code-btn">Ingresar Código ADMIN</button>
   </div>
 
   <div id="chat-panel">
     <div id="chat-header-panel">
       <span id="chat-title">General</span>
-      <div class="header-right">
-        <span id="typing-indicator"></span>
-        <button id="admin-code-btn" title="Ingresar código de Admin">🔒 Admin</button>
-      </div>
+      <span id="typing-indicator"></span>
     </div>
     <ul id="messages"></ul>
     <div id="input-area">
@@ -40,19 +38,16 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="notifications.js"></script>
 <script>
 const socket = io();
-
-// ====== ADMIN CONFIG ======
-const ADMIN_CODE = "1234-ABC"; // <-- CAMBIA este código por el tuyo
-let isAdmin = (localStorage.getItem("isAdmin") === "true");
-// ==========================
 
 let nickname = localStorage.getItem("nickname") || "";
 let currentChat = "public";
 let currentTarget = null;
-let allMessages = []; // Historial completo en el cliente
-let unreadCounts = {}; // Contador de mensajes no leídos
+let allMessages = [];
+let unreadCounts = {};
+let isAdmin = false;
 
 const nicknameModal = document.getElementById("nickname-modal");
 const usernameInput = document.getElementById("username");
@@ -68,45 +63,24 @@ const imageInput = document.getElementById("image-input");
 const imageBtn = document.getElementById("image-btn");
 const adminBtn = document.getElementById("admin-code-btn");
 
-// Botón para ingresar código de ADMIN
-adminBtn.addEventListener("click", ()=>{
-  const code = prompt("Ingresa el código de Admin:");
-  if(code === ADMIN_CODE){
-    isAdmin = true;
-    localStorage.setItem("isAdmin","true");
-    alert("✅ Código correcto. Ahora eres ADMIN.");
-    renderMessages(); // refresca para mostrar la insignia en tus mensajes anteriores
-  }else if(code !== null){
-    alert("❌ Código incorrecto.");
-  }
-});
-
-// Abrir selector de archivos al hacer clic en el botón 📎
+// Imagen
 imageBtn.addEventListener("click", () => imageInput.click());
-
-// Cuando el usuario selecciona una imagen
 imageInput.addEventListener("change", () => {
   const file = imageInput.files[0];
   if (!file) return;
 
   const reader = new FileReader();
   reader.onload = () => {
-    const dataURL = reader.result; // imagen en Base64
-
-    if (currentChat === "public") {
-      socket.emit("chat public", { type: "image", data: dataURL });
-    } else if (currentChat === "private") {
-      socket.emit("chat private", { target: currentTarget, text: "", type: "image", data: dataURL });
-    } else if (currentChat === "group") {
-      socket.emit("chat group", { groupName: currentTarget, text: "", type: "image", data: dataURL });
-    }
+    const dataURL = reader.result;
+    if (currentChat === "public") socket.emit("chat public", { type: "image", data: dataURL });
+    else if (currentChat === "private") socket.emit("chat private", { target: currentTarget, text: "", type: "image", data: dataURL });
+    else if (currentChat === "group") socket.emit("chat group", { groupName: currentTarget, text: "", type: "image", data: dataURL });
   };
   reader.readAsDataURL(file);
-
-  imageInput.value = ""; // resetear input
+  imageInput.value = "";
 });
 
-// Esperar conexión antes de enviar nickname guardado
+// Nickname
 socket.on("connect", () => {
   if (nickname) {
     socket.emit("set nickname", nickname);
@@ -116,56 +90,12 @@ socket.on("connect", () => {
   }
 });
 
-// Función para agregar un mensaje al DOM
-function addMessage(msg){
-  const li = document.createElement("li");
-  li.className = "message " + (msg.name===nickname?"you":"other");
-
-  // Construye el nombre + badge ADMIN si aplica
-  let nameHTML = msg.name;
-  if (isAdmin && msg.name === nickname) {
-    nameHTML += ` <span class="badge-admin">ADMIN</span>`;
-  }
-
-  let content = `<span class="name">${nameHTML}</span>`;
-
-  if(msg.image){ // si hay imagen
-    content += `<img src="${msg.image}" alt="imagen" class="chat-image"/>`;
-  }
-
-  if(msg.text){ // si hay texto
-    content += `<span class="text">${msg.text}</span>`;
-  }
-
-  content += `<span class="time">${new Date(msg.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
-
-  li.innerHTML = content;
-  messages.appendChild(li);
-  messages.scrollTop = messages.scrollHeight;
-}
-
-// Filtrar y renderizar mensajes según chat activo
-function renderMessages(){
-  messages.innerHTML = "";
-  allMessages.forEach(msg=>{
-    if(currentChat==="public" && msg.type==="public") addMessage(msg);
-    else if(currentChat==="private" && msg.type==="private"){
-      if((msg.name===nickname && msg.target===currentTarget) ||
-         (msg.name===currentTarget && msg.target===nickname)) addMessage(msg);
-    }
-    else if(currentChat==="group" && msg.type==="group" && msg.target===currentTarget){
-      addMessage(msg);
-    }
-  });
-}
-
-// Unirse con nickname manual
 joinBtn.addEventListener("click", ()=>{
   const name = usernameInput.value.trim();
   if(name){
-    nickname=name;
+    nickname = name;
     localStorage.setItem("nickname", nickname);
-    nicknameModal.style.display="none";
+    nicknameModal.style.display = "none";
     socket.emit("set nickname", nickname);
   }
 });
@@ -182,15 +112,10 @@ sendBtn.addEventListener("click", ()=>{
   messageInput.value="";
 });
 
-// Enter para enviar
-messageInput.addEventListener("keypress", e=>{
-  if(e.key==="Enter") sendBtn.click();
-});
+messageInput.addEventListener("keypress", e=>{if(e.key==="Enter") sendBtn.click();});
+messageInput.addEventListener("input", ()=>{socket.emit("typing",{type:currentChat,target:currentTarget});});
 
 // Indicador escribiendo
-messageInput.addEventListener("input", ()=>{
-  socket.emit("typing",{type:currentChat,target:currentTarget});
-});
 socket.on("typing", data=>{
   if(data.name!==nickname){
     typingIndicator.textContent = `${data.name} está escribiendo...`;
@@ -199,24 +124,31 @@ socket.on("typing", data=>{
   }
 });
 
-// Recibir historial inicial
+// ADMIN
+adminBtn.addEventListener("click", ()=>{
+  const code = prompt("Ingresa el código de Admin:");
+  if(code) socket.emit("set admin", code);
+});
+
+socket.on("admin update", nicknameAdmin => {
+  if(nicknameAdmin === nickname) isAdmin = true;
+  renderMessages();
+});
+
+// Mensajes
 socket.on("chat history", history=>{
   allMessages = history;
   renderMessages();
 });
-
-// Recibir nuevos mensajes
 socket.on("chat message", msg=>{
   allMessages.push(msg);
 
-  // Manejar mensajes no leídos
   if (msg.type === "private" && msg.name !== nickname) {
     if (currentChat !== "private" || currentTarget !== msg.name) {
       unreadCounts[msg.name] = (unreadCounts[msg.name] || 0) + 1;
       updateUnreadBadge(msg.name);
     }
   }
-
   if (msg.type === "group" && msg.name !== nickname) {
     if (currentChat !== "group" || currentTarget !== msg.target) {
       unreadCounts[msg.target] = (unreadCounts[msg.target] || 0) + 1;
@@ -227,14 +159,45 @@ socket.on("chat message", msg=>{
   renderMessages();
 });
 
-// Función para actualizar badges
+// Renderizar mensajes
+function addMessage(msg){
+  const li = document.createElement("li");
+  li.className = "message " + (msg.name===nickname?"you":"other");
+
+  let nameHTML = msg.name;
+  if(msg.isAdmin || (msg.name===nickname && isAdmin)){
+    nameHTML += ` <span class="badge-admin">ADMIN</span>`;
+  }
+
+  let content = `<span class="name">${nameHTML}</span>`;
+  if(msg.image) content += `<img src="${msg.image}" alt="imagen" class="chat-image"/>`;
+  if(msg.text) content += `<span class="text">${msg.text}</span>`;
+  content += `<span class="time">${new Date(msg.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
+  li.innerHTML = content;
+  messages.appendChild(li);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function renderMessages(){
+  messages.innerHTML = "";
+  allMessages.forEach(msg=>{
+    if(currentChat==="public" && msg.type==="public") addMessage(msg);
+    else if(currentChat==="private" && msg.type==="private"){
+      if((msg.name===nickname && msg.target===currentTarget) || (msg.name===currentTarget && msg.target===nickname)) addMessage(msg);
+    }
+    else if(currentChat==="group" && msg.type==="group" && msg.target===currentTarget){
+      addMessage(msg);
+    }
+  });
+}
+
+// Badges
 function updateUnreadBadge(nameOrGroup) {
   const lis = chatList.querySelectorAll("li");
   lis.forEach(li => {
     if (li.textContent.startsWith(nameOrGroup)) {
       const oldBadge = li.querySelector(".unread-badge");
       if (oldBadge) oldBadge.remove();
-
       const count = unreadCounts[nameOrGroup];
       if (count > 0) {
         const badge = document.createElement("span");
@@ -280,30 +243,38 @@ socket.on("group list", groups=>{
 // Crear grupo
 createGroupBtn.addEventListener("click", ()=>{
   const name = prompt("Nombre del grupo:");
-  const membersPrompt = prompt("Miembros separados por coma:");
-  if(!membersPrompt) return;
-  const members = membersPrompt.split(",").map(m=>m.trim()).filter(Boolean);
+  const members = prompt("Miembros separados por coma:").split(",").map(m=>m.trim());
   if(name && members.length>0){
     members.push(nickname);
     socket.emit("create group",{groupName:name,members});
   }
 });
 
-// Cambiar de chat
+// Cambiar chat
 function selectChat(type, target=null){
   currentChat = type;
   currentTarget = target;
   chatTitle.textContent = target || "General";
-
-  // Resetear contador de no leídos
   if(target && unreadCounts[target]){
     delete unreadCounts[target];
     updateUnreadBadge(target);
   }
-
   renderMessages();
 }
 </script>
-<script src="notifications.js"></script>
+
+<style>
+.badge-admin {
+  background: red;
+  color: white;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid black;
+  font-size: 12px;
+  margin-left: 6px;
+}
+</style>
+
 </body>
 </html>
