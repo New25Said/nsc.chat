@@ -9,97 +9,144 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static(path.join(__dirname)));
+app.use(express.json());
 
 const HISTORY_FILE = path.join(__dirname, "chatHistory.json");
-let chatHistory = { messages: [], groups: [] };
 
+// Historial
+let chatHistory = [];
 if (fs.existsSync(HISTORY_FILE)) {
   try {
     chatHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
-  } catch (e) {
-    console.error("Error leyendo historial:", e);
+  } catch (err) {
+    console.error("Error al leer historial:", err);
   }
 }
+
+// Usuarios, grupos y admins
+let users = {}; // socket.id -> nickname
+let groups = {}; // groupName -> [nicknames]
+let admins = {}; // nickname -> true/false
 
 function saveHistory() {
-  try {
-    fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
-  } catch (e) {
-    console.error("Error guardando historial:", e);
-  }
+  fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
 }
 
-let users = {}; // socket.id -> { nickname, admin }
+// Reset de chat y grupos
+app.post("/reset", (req, res) => {
+  chatHistory = [];
+  saveHistory();
+  groups = {};
+  io.emit("user list", Object.values(users));
+  io.emit("group list", Object.keys(groups));
+  console.log("⚡ Chat reseteado manualmente");
+  res.sendStatus(200);
+});
 
 io.on("connection", (socket) => {
-  console.log("Usuario conectado:", socket.id);
+  console.log("✅ Usuario conectado:", socket.id);
 
+  // Establecer nickname
   socket.on("set nickname", (nickname) => {
-    users[socket.id] = { nickname, admin: false };
-    socket.broadcast.emit("user joined", nickname);
-    socket.emit("load history", chatHistory);
+    users[socket.id] = nickname;
+    io.emit("user list", Object.values(users));
+    socket.emit("chat history", chatHistory);
+    socket.emit("group list", Object.keys(groups));
   });
 
-  socket.on("chat message", (msg) => {
-    if (!users[socket.id]) return;
-    const u = users[socket.id];
-    const message = { type: "public", user: u.nickname, text: msg, time: new Date().toLocaleTimeString(), admin: u.admin };
-    chatHistory.messages.push(message);
+  // Código ADMIN
+  socket.on("set admin", (code) => {
+    const ADMIN_CODE = "1234-ABC"; // <-- tu código secreto
+    const nickname = users[socket.id];
+    if (code === ADMIN_CODE && nickname) {
+      admins[nickname] = true;
+      io.emit("admin update", nickname);
+      console.log(`✅ ${nickname} es ahora ADMIN`);
+    }
+  });
+
+  // Crear mensaje con propiedad isAdmin
+  function createMessage(msg, type, target = null) {
+    const nickname = users[socket.id];
+    const isImage = typeof msg === "object" && msg.type === "image";
+    return {
+      id: socket.id,
+      name: nickname,
+      text: isImage ? "" : (type === "public" ? msg : msg.text),
+      image: isImage ? msg.data : null,
+      time: Date.now(),
+      type,
+      target,
+      isAdmin: admins[nickname] || false
+    };
+  }
+
+  // Mensajes públicos
+  socket.on("chat public", (msg) => {
+    const message = createMessage(msg, "public");
+    chatHistory.push(message);
     saveHistory();
     io.emit("chat message", message);
   });
 
-  socket.on("private message", ({ to, text }) => {
-    if (!users[socket.id]) return;
-    const u = users[socket.id];
-    const message = { type: "private", from: u.nickname, to, text, time: new Date().toLocaleTimeString(), admin: u.admin };
-    chatHistory.messages.push(message);
-    saveHistory();
-    io.emit("private message", message);
-  });
-
-  socket.on("create group", (groupName) => {
-    if (!chatHistory.groups.includes(groupName)) {
-      chatHistory.groups.push(groupName);
+  // Mensajes privados
+  socket.on("chat private", (msg) => {
+    const target = msg.target;
+    const targetId = Object.keys(users).find((id) => users[id] === target);
+    if (targetId) {
+      const message = createMessage(msg, "private", target);
+      chatHistory.push(message);
       saveHistory();
-      io.emit("group created", groupName);
+      socket.emit("chat message", message);
+      io.to(targetId).emit("chat message", message);
     }
   });
 
-  socket.on("group message", ({ group, text }) => {
-    if (!users[socket.id]) return;
-    const u = users[socket.id];
-    const message = { type: "group", group, user: u.nickname, text, time: new Date().toLocaleTimeString(), admin: u.admin };
-    chatHistory.messages.push(message);
-    saveHistory();
-    io.emit("group message", message);
-  });
-
-  socket.on("become admin", () => {
-    if (!users[socket.id]) return;
-    users[socket.id].admin = true;
-    io.emit("user admin", users[socket.id].nickname);
-  });
-
-  socket.on("typing", (isTyping) => {
-    if (users[socket.id]) {
-      socket.broadcast.emit("typing", { user: users[socket.id].nickname, isTyping });
+  // Mensajes de grupo
+  socket.on("chat group", (msg) => {
+    const groupName = msg.groupName;
+    if (groups[groupName] && groups[groupName].includes(users[socket.id])) {
+      const message = createMessage(msg, "group", groupName);
+      chatHistory.push(message);
+      saveHistory();
+      Object.entries(users).forEach(([sid, nick]) => {
+        if (groups[groupName].includes(nick)) {
+          io.to(sid).emit("chat message", message);
+        }
+      });
     }
   });
 
+  // Crear grupo
+  socket.on("create group", ({ groupName, members }) => {
+    if (!groups[groupName]) {
+      groups[groupName] = members;
+      io.emit("group list", Object.keys(groups));
+    }
+  });
+
+  // Indicador escribiendo
+  socket.on("typing", ({ type, target }) => {
+    if (type === "public") {
+      socket.broadcast.emit("typing", { name: users[socket.id], type, target: null });
+    } else if (type === "private" && target) {
+      const targetId = Object.keys(users).find((id) => users[id] === target);
+      if (targetId) io.to(targetId).emit("typing", { name: users[socket.id], type, target });
+    } else if (type === "group" && target) {
+      groups[target].forEach((nick) => {
+        const sid = Object.keys(users).find((id) => users[id] === nick);
+        if (sid && sid !== socket.id) io.to(sid).emit("typing", { name: users[socket.id], type, target });
+      });
+    }
+  });
+
+  // Desconexión
   socket.on("disconnect", () => {
-    if (users[socket.id]) {
-      io.emit("user left", users[socket.id].nickname);
-      delete users[socket.id];
-    }
+    console.log("❌ Usuario desconectado:", socket.id);
+    delete users[socket.id];
+    io.emit("user list", Object.values(users));
   });
-});
-
-app.get("/reset", (req, res) => {
-  chatHistory = { messages: [], groups: [] };
-  saveHistory();
-  res.send("Historial y grupos reiniciados.");
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Servidor en puerto " + PORT));
+server.listen(PORT, () => console.log(`✅ Servidor chat listo en puerto ${PORT}`));
