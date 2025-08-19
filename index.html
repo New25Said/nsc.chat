@@ -6,46 +6,48 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="chat-app">
-    <div id="sidebar">
-      <div id="sidebar-header">💬 Chat</div>
-      <input id="search-contact" placeholder="Buscar contactos...">
-      <div id="contact-list"></div>
-      <button id="reset-history">♻️ Reset</button>
-      <button id="activate-admin">⭐ Activar Admin</button>
-    </div>
 
-    <div id="chat-container">
-      <div id="chat-header">Chat</div>
-      <div id="messages"></div>
-      <div id="typing"></div>
-      <form id="message-form">
-        <input id="message-input" autocomplete="off" placeholder="Escribe un mensaje..." />
-        <button>Enviar</button>
-      </form>
-    </div>
+<div id="chat-app">
+  <div id="sidebar">
+    <div id="sidebar-header">💬 Chat</div>
+    <input id="search-contact" placeholder="Buscar contacto...">
+    <ul id="contact-list"></ul>
+    <button id="reset-history">🗑️ Borrar historial</button>
+    <button id="activate-admin">🔑 Activar Admin</button>
   </div>
 
-  <!-- Modal Nickname -->
-  <div id="nickname-modal" class="modal">
-    <div class="modal-content">
-      <h2>Ingresa tu nickname</h2>
-      <input type="text" id="nickname-input" placeholder="Tu nickname">
-      <button id="save-nickname">Aceptar</button>
+  <div id="chat-container">
+    <div id="chat-header">
+      <span id="current-contact">Selecciona un contacto</span>
+    </div>
+    <div id="chat-messages"></div>
+    <div id="chat-input">
+      <input id="message-input" type="text" placeholder="Escribe un mensaje...">
+      <button id="send-button">Enviar</button>
     </div>
   </div>
+</div>
 
-  <!-- Modal Admin -->
-  <div id="admin-modal" class="modal">
-    <div class="modal-content">
-      <h2>Introduce el código secreto</h2>
-      <input type="password" id="admin-code" placeholder="Código secreto">
-      <button id="submit-admin">Aceptar</button>
-    </div>
+<!-- Modal para ingresar nickname -->
+<div id="nickname-modal" class="modal">
+  <div class="modal-content">
+    <h2>Introduce tu nickname</h2>
+    <input id="nickname-input" type="text" placeholder="Tu nickname...">
+    <button id="nickname-submit">Aceptar</button>
   </div>
+</div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="client.js"></script>
-  <script src="notifications.js"></script>
+<!-- Modal para activar admin -->
+<div id="admin-modal" class="modal">
+  <div class="modal-content">
+    <h2>Introduce el código secreto</h2>
+    <input id="admin-code-input" type="password" placeholder="Código secreto...">
+    <button id="admin-code-submit">Aceptar</button>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="client.js"></script>
+<script src="notifications.js"></script>
 </body>
 </html>
