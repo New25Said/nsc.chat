@@ -1,179 +1,67 @@
-/* ====== Estilo tipo Google Hangouts ====== */
-body {
-  font-family: "Roboto", sans-serif;
-  margin: 0;
-  background: #f1f3f4;
-  color: #202124;
-  display: flex;
-  height: 100vh;
-}
-
-/* Contenedor principal */
-#chat-app {
-  display: flex;
-  flex: 1;
-  height: 100vh;
-}
-
-/* ===== Sidebar ===== */
-#sidebar {
-  width: 260px;
-  background: #ffffff;
-  border-right: 1px solid #dadce0;
-  display: flex;
-  flex-direction: column;
-  padding: 12px;
-}
-
-#sidebar-header {
-  font-size: 18px;
+body, html{margin:0;padding:0;height:100%;font-family:Arial,sans-serif}
+#chat-app{display:flex;height:100vh}
+#sidebar{width:280px;background:#f0f0f0;display:flex;flex-direction:column;border-right:1px solid #ccc}
+#sidebar-header{padding:15px;background:#075e54;color:#fff;font-weight:bold}
+#search-contact{margin:10px;padding:8px;border-radius:20px;border:1px solid #ccc;outline:none}
+#chat-list{flex:1;overflow-y:auto;list-style:none;padding:0;margin:0}
+#chat-list li{padding:10px 15px;cursor:pointer;border-bottom:1px solid #e6e6e6}
+#chat-list li.contact:hover,#chat-list li.group:hover,#chat-list li.public:hover{background:#e0e0e0;border-radius:5px}
+#chat-panel{flex:1;display:flex;flex-direction:column;background:#ece5dd}
+#chat-header-panel{padding:15px;background:#075e54;color:#fff;font-weight:bold;display:flex;justify-content:space-between}
+#messages{flex:1;overflow-y:auto;padding:15px;display:flex;flex-direction:column;gap:8px}
+.message{max-width:70%;padding:8px 12px;border-radius:12px;display:flex;flex-direction:column;gap:2px;box-shadow:0 1px 1px rgba(0,0,0,.1)}
+.message.you{align-self:flex-end;background:#dcf8c6;border-top-right-radius:4px}
+.message.other{align-self:flex-start;background:#fff;border-top-left-radius:4px}
+.message .name{font-weight:bold;font-size:13px;opacity:.8}
+.message .text{word-wrap:break-word;white-space:pre-wrap}
+.message .time{font-size:11px;color:#666;align-self:flex-end}
+#input-area{display:flex;padding:10px;background:#f0f0f0;border-top:1px solid #ccc}
+#message-input{flex:1;padding:10px;border-radius:20px;border:1px solid #ccc;outline:none}
+#send-btn{padding:0 16px;border:none;background:#075e54;color:#fff;border-radius:20px;cursor:pointer}
+#send-btn:hover{filter:brightness(1.1)}
+#nickname-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);display:none;justify-content:center;align-items:center;flex-direction:column;gap:10px}
+#nickname-modal input{padding:10px 12px;border-radius:20px;border:1px solid #ccc;outline:none}
+#nickname-modal button{padding:10px 16px;border:none;background:#075e54;color:#fff;border-radius:20px;cursor:pointer}
+#nickname-modal button:hover{filter:brightness(1.1)}
+.unread-badge {
+  display: inline-block;
+  background: red;
+  color: white;
+  font-size: 12px;
   font-weight: bold;
-  margin-bottom: 20px;
+  border-radius: 50%;
+  padding: 2px 6px;
+  margin-left: 8px;
 }
-
-#sidebar button {
-  margin-bottom: 10px;
-  padding: 10px;
+.chat-image {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 12px;
+  margin-top: 4px;
+  object-fit: cover;
+}
+#image-btn {
   border: none;
-  border-radius: 6px;
-  background: #e8f0fe;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background 0.2s;
-}
-
-#sidebar button:hover {
-  background: #d2e3fc;
-}
-
-/* ===== Chat window ===== */
-#chat-window {
-  flex: 1;
+  background: none;
+  width: 36px;      /* ancho fijo */
+  height: 36px;     /* alto fijo */
   display: flex;
-  flex-direction: column;
-  background: #f8f9fa;
-}
-
-#messages {
-  list-style: none;
-  margin: 0;
-  padding: 20px;
-  flex: 1;
-  overflow-y: auto;
-}
-
-#messages li {
-  max-width: 60%;
-  margin-bottom: 12px;
-  padding: 10px 14px;
-  border-radius: 16px;
-  line-height: 1.4;
-  word-wrap: break-word;
-}
-
-/* Mensajes normales */
-#messages li:not(.admin):not(.self) {
-  background: #fff;
-  align-self: flex-start;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-/* Mensajes propios */
-#messages li.self {
-  background: #dcf8c6;
-  align-self: flex-end;
-}
-
-/* Mensajes ADMIN */
-#messages li.admin {
-  background: #202124;
-  color: #fff;
-  font-weight: bold;
-  align-self: center;
-  text-align: center;
-  border-radius: 8px;
-  max-width: 80%;
-}
-
-/* ===== Input ===== */
-#form {
-  display: flex;
-  border-top: 1px solid #dadce0;
-  background: #fff;
-  padding: 10px;
-}
-
-#input {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  outline: none;
-  border-radius: 20px;
-  background: #f1f3f4;
-  margin-right: 8px;
-}
-
-#form button {
-  padding: 0 16px;
-  border: none;
-  border-radius: 20px;
-  background: #1a73e8;
-  color: #fff;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-#form button:hover {
-  background: #1669c1;
-}
-
-/* ===== Modales ===== */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(32, 33, 36, 0.6);
-  justify-content: center;
   align-items: center;
-}
-
-.modal-content {
-  background: #fff;
-  padding: 24px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-  text-align: center;
-  width: 320px;
-}
-
-.modal-content h2 {
-  margin-top: 0;
-  margin-bottom: 16px;
-}
-
-.modal-content input {
-  width: 100%;
-  padding: 10px;
-  margin: 8px 0;
-  border: 1px solid #dadce0;
-  border-radius: 6px;
-}
-
-.modal-content button {
-  margin-top: 12px;
-  padding: 10px 16px;
-  border: none;
-  border-radius: 6px;
-  background: #1a73e8;
-  color: #fff;
+  justify-content: center;
   cursor: pointer;
-  font-weight: 500;
+  border-radius: 50%; /* opcional, que sea redondo */
+}
+#image-btn:hover {
+  background: rgba(0,0,0,0.05); /* ligero efecto al pasar mouse */
 }
 
-.modal-content button:hover {
-  background: #1669c1;
+/* === NUEVO: insignia ADMIN === */
+.admin-badge {
+  background: black;
+  color: red;
+  font-weight: bold;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 5px;
 }
