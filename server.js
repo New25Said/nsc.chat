@@ -11,68 +11,95 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname)));
 
 const HISTORY_FILE = path.join(__dirname, "chatHistory.json");
+let chatHistory = { messages: [], groups: [] };
 
-// Cargar historial
-let chatHistory = [];
 if (fs.existsSync(HISTORY_FILE)) {
   try {
     chatHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
-  } catch (err) {
-    console.error("Error cargando historial:", err);
-    chatHistory = [];
+  } catch (e) {
+    console.error("Error leyendo historial:", e);
   }
 }
 
-// Guardar historial
 function saveHistory() {
-  fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2), "utf8");
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
+  } catch (e) {
+    console.error("Error guardando historial:", e);
+  }
 }
+
+let users = {}; // socket.id -> { nickname, admin }
 
 io.on("connection", (socket) => {
   console.log("Usuario conectado:", socket.id);
 
-  // Enviar historial al nuevo usuario
-  socket.emit("chat history", chatHistory);
-
-  // Guardar nickname
   socket.on("set nickname", (nickname) => {
-    socket.nickname = nickname;
+    users[socket.id] = { nickname, admin: false };
+    socket.broadcast.emit("user joined", nickname);
+    socket.emit("load history", chatHistory);
   });
 
-  // Activar admin
-  socket.on("set admin", () => {
-    socket.isAdmin = true;
-    io.emit("update user admin", { id: socket.id, isAdmin: true });
-  });
-
-  // Mensaje
   socket.on("chat message", (msg) => {
-    if (!socket.nickname) return;
-    const messageData = {
-      user: socket.nickname,
-      text: msg,
-      timestamp: new Date().toISOString(),
-      isAdmin: socket.isAdmin || false
-    };
-    chatHistory.push(messageData);
+    if (!users[socket.id]) return;
+    const u = users[socket.id];
+    const message = { type: "public", user: u.nickname, text: msg, time: new Date().toLocaleTimeString(), admin: u.admin };
+    chatHistory.messages.push(message);
     saveHistory();
-    io.emit("chat message", messageData);
+    io.emit("chat message", message);
   });
 
-  // Resetear historial
-  socket.on("reset history", () => {
-    chatHistory = [];
+  socket.on("private message", ({ to, text }) => {
+    if (!users[socket.id]) return;
+    const u = users[socket.id];
+    const message = { type: "private", from: u.nickname, to, text, time: new Date().toLocaleTimeString(), admin: u.admin };
+    chatHistory.messages.push(message);
     saveHistory();
-    io.emit("chat history", []);
+    io.emit("private message", message);
   });
 
-  // Desconexión
+  socket.on("create group", (groupName) => {
+    if (!chatHistory.groups.includes(groupName)) {
+      chatHistory.groups.push(groupName);
+      saveHistory();
+      io.emit("group created", groupName);
+    }
+  });
+
+  socket.on("group message", ({ group, text }) => {
+    if (!users[socket.id]) return;
+    const u = users[socket.id];
+    const message = { type: "group", group, user: u.nickname, text, time: new Date().toLocaleTimeString(), admin: u.admin };
+    chatHistory.messages.push(message);
+    saveHistory();
+    io.emit("group message", message);
+  });
+
+  socket.on("become admin", () => {
+    if (!users[socket.id]) return;
+    users[socket.id].admin = true;
+    io.emit("user admin", users[socket.id].nickname);
+  });
+
+  socket.on("typing", (isTyping) => {
+    if (users[socket.id]) {
+      socket.broadcast.emit("typing", { user: users[socket.id].nickname, isTyping });
+    }
+  });
+
   socket.on("disconnect", () => {
-    console.log("Usuario desconectado:", socket.id);
+    if (users[socket.id]) {
+      io.emit("user left", users[socket.id].nickname);
+      delete users[socket.id];
+    }
   });
+});
+
+app.get("/reset", (req, res) => {
+  chatHistory = { messages: [], groups: [] };
+  saveHistory();
+  res.send("Historial y grupos reiniciados.");
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
-});
+server.listen(PORT, () => console.log("Servidor en puerto " + PORT));
