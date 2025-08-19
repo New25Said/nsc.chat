@@ -13,21 +13,23 @@
     <input id="search-contact" placeholder="Buscar..."/>
     <ul id="chat-list"></ul>
     <button id="create-group-btn">Crear Grupo</button>
-    <button id="admin-btn">Activar Admin</button>
   </div>
 
   <div id="chat-panel">
     <div id="chat-header-panel">
       <span id="chat-title">General</span>
-      <span id="typing-indicator"></span>
+      <div class="header-right">
+        <span id="typing-indicator"></span>
+        <button id="admin-code-btn" title="Ingresar código de Admin">🔒 Admin</button>
+      </div>
     </div>
     <ul id="messages"></ul>
-<div id="input-area">
-  <input id="message-input" placeholder="Escribe un mensaje..." autocomplete="off"/>
-  <input type="file" id="image-input" accept="image/*" style="display:none"/>
-  <button id="image-btn">📎</button>
-  <button id="send-btn">➤</button>
-</div>
+    <div id="input-area">
+      <input id="message-input" placeholder="Escribe un mensaje..." autocomplete="off"/>
+      <input type="file" id="image-input" accept="image/*" style="display:none"/>
+      <button id="image-btn">📎</button>
+      <button id="send-btn">➤</button>
+    </div>
   </div>
 </div>
 
@@ -41,12 +43,16 @@
 <script>
 const socket = io();
 
+// ====== ADMIN CONFIG ======
+const ADMIN_CODE = "1234-ABC"; // <-- CAMBIA este código por el tuyo
+let isAdmin = (localStorage.getItem("isAdmin") === "true");
+// ==========================
+
 let nickname = localStorage.getItem("nickname") || "";
 let currentChat = "public";
 let currentTarget = null;
 let allMessages = []; // Historial completo en el cliente
 let unreadCounts = {}; // Contador de mensajes no leídos
-let isAdmin = false; // NUEVO
 
 const nicknameModal = document.getElementById("nickname-modal");
 const usernameInput = document.getElementById("username");
@@ -60,16 +66,18 @@ const chatTitle = document.getElementById("chat-title");
 const createGroupBtn = document.getElementById("create-group-btn");
 const imageInput = document.getElementById("image-input");
 const imageBtn = document.getElementById("image-btn");
-const adminBtn = document.getElementById("admin-btn"); // NUEVO
+const adminBtn = document.getElementById("admin-code-btn");
 
-// Botón Admin
-adminBtn.addEventListener("click", () => {
-  const code = prompt("Introduce el código secreto:");
-  if (code === "1234") {
+// Botón para ingresar código de ADMIN
+adminBtn.addEventListener("click", ()=>{
+  const code = prompt("Ingresa el código de Admin:");
+  if(code === ADMIN_CODE){
     isAdmin = true;
-    alert("✅ Ahora eres ADMIN");
-  } else {
-    alert("❌ Código incorrecto");
+    localStorage.setItem("isAdmin","true");
+    alert("✅ Código correcto. Ahora eres ADMIN.");
+    renderMessages(); // refresca para mostrar la insignia en tus mensajes anteriores
+  }else if(code !== null){
+    alert("❌ Código incorrecto.");
   }
 });
 
@@ -113,13 +121,13 @@ function addMessage(msg){
   const li = document.createElement("li");
   li.className = "message " + (msg.name===nickname?"you":"other");
 
-  let content = `<span class="name">${msg.name}`;
-
-  // Si el remitente es el usuario actual y es admin, mostrar ADMIN
-  if(msg.name === nickname && isAdmin){
-    content += ` <span class="admin-badge">ADMIN</span>`;
+  // Construye el nombre + badge ADMIN si aplica
+  let nameHTML = msg.name;
+  if (isAdmin && msg.name === nickname) {
+    nameHTML += ` <span class="badge-admin">ADMIN</span>`;
   }
-  content += `</span>`;
+
+  let content = `<span class="name">${nameHTML}</span>`;
 
   if(msg.image){ // si hay imagen
     content += `<img src="${msg.image}" alt="imagen" class="chat-image"/>`;
@@ -272,7 +280,9 @@ socket.on("group list", groups=>{
 // Crear grupo
 createGroupBtn.addEventListener("click", ()=>{
   const name = prompt("Nombre del grupo:");
-  const members = prompt("Miembros separados por coma:").split(",").map(m=>m.trim());
+  const membersPrompt = prompt("Miembros separados por coma:");
+  if(!membersPrompt) return;
+  const members = membersPrompt.split(",").map(m=>m.trim()).filter(Boolean);
   if(name && members.length>0){
     members.push(nickname);
     socket.emit("create group",{groupName:name,members});
@@ -294,6 +304,6 @@ function selectChat(type, target=null){
   renderMessages();
 }
 </script>
-  <script src="notifications.js"></script>
+<script src="notifications.js"></script>
 </body>
 </html>
