@@ -80,11 +80,28 @@ io.on("connection", (socket) => {
   socket.on("set admin", (code) => {
     const ADMIN_CODE = "coolkid-admin"; // <-- tu código secreto
     const nickname = users[socket.id];
-    if (code === ADMIN_CODE && nickname) {
+    if (code === ADMIN_CODE && nickname && !admins[nickname]) {
       admins[nickname] = true;
       saveAdmins();
+
       io.emit("admin update", nickname);
       console.log(`✅ ${nickname} es ahora ADMIN`);
+
+      // Crear mensaje normal en chat general
+      const adminMessage = {
+        id: socket.id,
+        name: nickname,
+        text: `${nickname} se ha vuelto admin!`,
+        image: null,
+        time: Date.now(),
+        type: "public",
+        target: null,
+        isAdmin: true
+      };
+
+      chatHistory.push(adminMessage);
+      saveHistory();
+      io.emit("chat message", adminMessage);
     }
   });
 
@@ -170,35 +187,6 @@ io.on("connection", (socket) => {
     io.emit("user list", Object.values(users));
   });
 });
-// Código ADMIN
-socket.on("set admin", (code) => {
-  const ADMIN_CODE = "coolkid-admin";
-  const nickname = users[socket.id];
-  if (code === ADMIN_CODE && nickname && !admins[nickname]) {
-    admins[nickname] = true;
-    saveAdmins();
-
-    io.emit("admin update", nickname);
-    console.log(`✅ ${nickname} es ahora ADMIN`);
-
-    // Crear mensaje normal en chat general
-    const adminMessage = {
-      id: socket.id,
-      name: nickname,
-      text: `${nickname} se ha vuelto admin!`,
-      image: null,
-      time: Date.now(),
-      type: "public",
-      target: null,
-      isAdmin: true
-    };
-
-    chatHistory.push(adminMessage);
-    saveHistory();
-    io.emit("chat message", adminMessage);
-  }
-});
-
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`✅ Servidor chat listo en puerto ${PORT}`));
