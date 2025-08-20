@@ -3,35 +3,152 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WhatsApp Web Simulado</title>
-<link rel="stylesheet" href="styles.css">
+<title>WhatsApp Clone</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; font-family:Arial,sans-serif; }
+body { background:#f0f2f5; }
+#login-screen, #chat-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; width:100vw; }
+#login-screen input { padding:10px; margin:10px; border-radius:5px; border:1px solid #ccc; }
+#login-screen button { padding:10px 20px; border:none; border-radius:5px; background:#128C7E; color:#fff; cursor:pointer; }
+#chat-app { display:flex; height:100vh; width:100vw; }
+#sidebar { width:300px; background:#fff; border-right:1px solid #ccc; display:flex; flex-direction:column; }
+#sidebar-header { padding:15px; font-weight:bold; border-bottom:1px solid #ccc; }
+#chat-list { list-style:none; overflow-y:auto; flex:1; }
+.chat-item { padding:10px 15px; cursor:pointer; border-bottom:1px solid #eee; }
+.chat-item.active { background:#e6f7ff; }
+#chat-window { flex:1; display:flex; flex-direction:column; }
+#chat-header { padding:15px; border-bottom:1px solid #ccc; font-weight:bold; background:#f5f5f5; }
+#messages { flex:1; padding:15px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
+.message { max-width:60%; padding:10px 15px; border-radius:20px; }
+.message.self { background:#dcf8c6; align-self:flex-end; }
+.message.other { background:#fff; align-self:flex-start; border:1px solid #ccc; }
+#chat-input { display:flex; padding:10px; border-top:1px solid #ccc; }
+#message-input { flex:1; padding:10px; border-radius:20px; border:1px solid #ccc; margin-right:10px; }
+#send-btn { padding:10px 20px; border:none; border-radius:20px; background:#128C7E; color:#fff; cursor:pointer; }
+</style>
 </head>
 <body>
 
-<div id="chat-app">
-  <div id="sidebar">
-    <div id="sidebar-header">💬 Chats</div>
-    <input id="search-contact" placeholder="Buscar...">
-    <ul id="chat-list">
-      <!-- Lista de chats -->
-      <li class="chat-item active" data-name="Usuario 1">Usuario 1</li>
-      <li class="chat-item" data-name="Usuario 2">Usuario 2</li>
-    </ul>
-  </div>
+<div id="login-screen">
+  <h2>Ingresa tu nickname</h2>
+  <input id="nickname" placeholder="Tu nickname">
+  <button id="enter-btn">Entrar</button>
+</div>
 
-  <div id="chat-window">
-    <div id="chat-header">
-      <span id="chat-name">Usuario 1</span>
+<div id="chat-screen" style="display:none;">
+  <div id="chat-app">
+    <div id="sidebar">
+      <div id="sidebar-header">💬 Chats</div>
+      <ul id="chat-list"></ul>
     </div>
-    <div id="messages"></div>
-    <div id="chat-input">
-      <input id="message-input" placeholder="Escribe un mensaje..." />
-      <button id="send-btn">Enviar</button>
+    <div id="chat-window">
+      <div id="chat-header"><span id="chat-name"></span></div>
+      <div id="messages"></div>
+      <div id="chat-input">
+        <input id="message-input" placeholder="Escribe un mensaje..." />
+        <button id="send-btn">Enviar</button>
+      </div>
     </div>
   </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="script.js"></script>
+<script>
+const socket = io();
+let nickname = localStorage.getItem("nickname");
+const loginScreen = document.getElementById("login-screen");
+const chatScreen = document.getElementById("chat-screen");
+const enterBtn = document.getElementById("enter-btn");
+const nicknameInput = document.getElementById("nickname");
+
+const chatList = document.getElementById("chat-list");
+const messagesDiv = document.getElementById("messages");
+const chatName = document.getElementById("chat-name");
+const messageInput = document.getElementById("message-input");
+const sendBtn = document.getElementById("send-btn");
+
+// Entrar
+enterBtn.addEventListener("click", async ()=>{
+  const nick = nicknameInput.value.trim();
+  if(!nick) return alert("Ingresa un nickname");
+  const res = await fetch("/login",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({nickname:nick}) });
+  const data = await res.json();
+  if(data.success){
+    nickname = data.nickname;
+    localStorage.setItem("nickname",nickname);
+    loginScreen.style.display="none";
+    chatScreen.style.display="flex";
+    chatName.textContent = nickname;
+    loadUsers();
+    loadMessages();
+  }
+});
+
+// Cargar usuarios (simples)
+async function loadUsers(){
+  const res = await fetch(`/messages/${nickname}`);
+  const msgs = await res.json();
+  const users = new Set(msgs.map(m=>m.from).concat(msgs.map(m=>m.to)));
+  users.delete(nickname);
+  chatList.innerHTML="";
+  users.forEach(u=>{
+    const li = document.createElement("li");
+    li.textContent = u;
+    li.classList.add("chat-item");
+    li.addEventListener("click", ()=>{ selectChat(u); });
+    chatList.appendChild(li);
+  });
+}
+
+// Chat activo
+let activeChat = null;
+function selectChat(u){
+  activeChat = u;
+  chatName.textContent = u;
+  loadMessages();
+}
+
+// Cargar mensajes
+async function loadMessages(){
+  if(!activeChat) return;
+  const res = await fetch(`/messages/${nickname}`);
+  const msgs = await res.json();
+  messagesDiv.innerHTML="";
+  msgs.filter(m=> (m.from===nickname && m.to===activeChat) || (m.from===activeChat && m.to===nickname))
+      .forEach(m=> appendMessage({text:m.text,self:m.from===nickname,time:m.time}));
+}
+
+// Enviar mensaje
+sendBtn.addEventListener("click", sendMessage);
+messageInput.addEventListener("keypress", e=>{ if(e.key==="Enter") sendMessage(); });
+
+function sendMessage(){
+  if(!activeChat) return alert("Selecciona un chat");
+  const text = messageInput.value.trim();
+  if(!text) return;
+  const data = { from:nickname, to:activeChat, text, time:new Date().toLocaleTimeString() };
+  appendMessage({...data,self:true});
+  socket.emit("chat message", data);
+  messageInput.value="";
+}
+
+// Recibir mensaje
+socket.on("chat message", data=>{
+  if((data.from===activeChat && data.to===nickname) || (data.from===nickname && data.to===activeChat)){
+    appendMessage({...data,self:data.from===nickname});
+    loadUsers();
+  }
+});
+
+function appendMessage(data){
+  const div = document.createElement("div");
+  div.classList.add("message");
+  div.classList.add(data.self?"self":"other");
+  div.innerHTML=`<p>${data.text}</p><span>${data.time}</span>`;
+  messagesDiv.appendChild(div);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+</script>
+
 </body>
 </html>
