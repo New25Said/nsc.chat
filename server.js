@@ -1,71 +1,61 @@
-require('dotenv').config();
-const express = require("express");
-const http = require("http");
-const socketIo = require("socket.io");
-const mongoose = require("mongoose");
-const cors = require("cors");
-const path = require("path");
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
+import mongoose from "mongoose";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, { cors: { origin: "*" } });
+const io = new Server(server);
 
-app.use(cors());
-app.use(express.json());
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 🔴 Aquí pones tu cadena de conexión directo
+const MONGO_URI = "mongodb+srv://USUARIO:CONTRASEÑA@cluster.mongodb.net/nsc-chat";
+
+// Servir archivos estáticos desde /public
 app.use(express.static(path.join(__dirname, "public")));
 
-// Conectar MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log("MongoDB conectado"))
-  .catch(err => console.log(err));
+// Conexión MongoDB
+mongoose.connect(MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => console.log("✅ MongoDB conectado"))
+  .catch(err => console.error("❌ Error MongoDB:", err));
 
-// Esquemas
-const UserSchema = new mongoose.Schema({
-  nickname: String,
-  online: Boolean
-});
+// Esquema y modelo de mensajes
 const MessageSchema = new mongoose.Schema({
-  from: String,
-  to: String,
+  sender: String,
   text: String,
-  time: String
+  timestamp: { type: Date, default: Date.now }
 });
-
-const User = mongoose.model("User", UserSchema);
 const Message = mongoose.model("Message", MessageSchema);
 
-// Registro/Login solo con nickname
-app.post("/login", async (req,res)=>{
-  const { nickname } = req.body;
-  let user = await User.findOne({ nickname });
-  if(!user){
-    user = new User({ nickname, online:true });
-    await user.save();
-  } else {
-    user.online = true;
-    await user.save();
-  }
-  res.send({ success:true, nickname: user.nickname });
-});
+// WebSockets
+io.on("connection", (socket) => {
+  console.log("🟢 Usuario conectado:", socket.id);
 
-// Obtener mensajes
-app.get("/messages/:nickname", async (req,res)=>{
-  const { nickname } = req.params;
-  const msgs = await Message.find({ $or:[ {from:nickname},{to:nickname} ] });
-  res.send(msgs);
-});
-
-// Socket.IO
-io.on("connection", socket=>{
-  console.log("Usuario conectado", socket.id);
-
-  socket.on("chat message", async (data)=>{
-    const message = new Message(data);
-    await message.save();
-    io.emit("chat message", data);
+  // Mandar historial al nuevo usuario
+  Message.find().sort({ timestamp: 1 }).then(messages => {
+    socket.emit("chat-history", messages);
   });
 
-  socket.on("disconnect", ()=>{ console.log("Usuario desconectado", socket.id); });
+  // Cuando alguien envía un mensaje
+  socket.on("chat-message", async (msg) => {
+    const message = new Message(msg);
+    await message.save();
+    io.emit("chat-message", message); // broadcast
+  });
+
+  socket.on("disconnect", () => {
+    console.log("🔴 Usuario desconectado:", socket.id);
+  });
 });
 
-server.listen(process.env.PORT || 3000, ()=>console.log("Servidor corriendo en http://localhost:" + (process.env.PORT || 3000)));
+// Render usa el puerto de env o 3000
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+});
