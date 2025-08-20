@@ -1,190 +1,27 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WhatsApp Clone</title>
-<style>
-* { box-sizing:border-box; margin:0; padding:0; font-family:Arial,sans-serif; }
-body { background:#f0f2f5; }
-#login-screen, #chat-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; width:100vw; }
-#login-screen input { padding:10px; margin:10px; border-radius:5px; border:1px solid #ccc; }
-#login-screen button { padding:10px 20px; border:none; border-radius:5px; background:#128C7E; color:#fff; cursor:pointer; }
-#chat-app { display:flex; height:100vh; width:100vw; }
-#sidebar { width:300px; background:#fff; border-right:1px solid #ccc; display:flex; flex-direction:column; }
-#sidebar-header { padding:15px; font-weight:bold; border-bottom:1px solid #ccc; }
-#chat-list { list-style:none; overflow-y:auto; flex:1; }
-.chat-item { padding:10px 15px; cursor:pointer; border-bottom:1px solid #eee; display:flex; justify-content:space-between; }
-.chat-item.active { background:#e6f7ff; }
-.chat-item .online { width:10px; height:10px; border-radius:50%; background:#4caf50; margin-left:5px; }
-#chat-window { flex:1; display:flex; flex-direction:column; }
-#chat-header { padding:15px; border-bottom:1px solid #ccc; font-weight:bold; background:#f5f5f5; display:flex; align-items:center; gap:10px; }
-#chat-header img { width:35px; height:35px; border-radius:50%; }
-#messages { flex:1; padding:15px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
-.message { max-width:60%; padding:10px 15px; border-radius:20px; position:relative; }
-.message.self { background:#dcf8c6; align-self:flex-end; }
-.message.other { background:#fff; align-self:flex-start; border:1px solid #ccc; }
-.message span.time { font-size:10px; position:absolute; bottom:2px; right:10px; color:#999; }
-.message span.check { font-size:12px; margin-left:5px; color:#128C7E; }
-#chat-input { display:flex; padding:10px; border-top:1px solid #ccc; gap:5px; }
-#message-input { flex:1; padding:10px; border-radius:20px; border:1px solid #ccc; }
-#send-btn, #emoji-btn, #sticker-btn { padding:10px 15px; border:none; border-radius:50%; background:#128C7E; color:#fff; cursor:pointer; }
-#emoji-panel, #sticker-panel { display:none; position:absolute; bottom:60px; left:20px; background:#fff; border:1px solid #ccc; border-radius:10px; padding:10px; max-width:300px; display:flex; flex-wrap:wrap; gap:5px; }
-#emoji-panel span, #sticker-panel img { cursor:pointer; font-size:20px; }
-</style>
+  <meta charset="UTF-8">
+  <title>💬 NSC Chat</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div id="login-screen">
+    <h2>Ingresa tu Nickname</h2>
+    <input id="nickname" placeholder="Tu nombre..." />
+    <button onclick="enterChat()">Entrar</button>
+  </div>
 
-<div id="login-screen">
-  <h2>Ingresa tu nickname</h2>
-  <input id="nickname" placeholder="Tu nickname">
-  <button id="enter-btn">Entrar</button>
-</div>
-
-<div id="chat-screen" style="display:none; position:relative;">
-  <div id="chat-app">
-    <div id="sidebar">
-      <div id="sidebar-header">💬 Chats</div>
-      <ul id="chat-list"></ul>
-    </div>
-    <div id="chat-window">
-      <div id="chat-header">
-        <img src="https://i.pravatar.cc/35" alt="Foto">
-        <span id="chat-name"></span>
-        <span id="status" style="font-size:12px; color:#666;">offline</span>
-      </div>
-      <div id="messages"></div>
-      <div id="chat-input">
-        <button id="emoji-btn">😊</button>
-        <button id="sticker-btn">🏷️</button>
-        <input id="message-input" placeholder="Escribe un mensaje..." />
-        <button id="send-btn">➡️</button>
-      </div>
+  <div id="chat-screen" style="display:none;">
+    <div id="chat-header">💬 NSC Chat</div>
+    <div id="messages"></div>
+    <div id="chat-input">
+      <input id="message-input" placeholder="Escribe un mensaje..." />
+      <button onclick="sendMessage()">➤</button>
     </div>
   </div>
-  <div id="emoji-panel">
-    <span>😀</span><span>😂</span><span>😎</span><span>😍</span><span>😭</span>
-  </div>
-  <div id="sticker-panel">
-    <img src="https://via.placeholder.com/50x50?text=🐶">
-    <img src="https://via.placeholder.com/50x50?text=🐱">
-    <img src="https://via.placeholder.com/50x50?text=❤️">
-  </div>
-</div>
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-const socket = io();
-let nickname = localStorage.getItem("nickname");
-const loginScreen = document.getElementById("login-screen");
-const chatScreen = document.getElementById("chat-screen");
-const enterBtn = document.getElementById("enter-btn");
-const nicknameInput = document.getElementById("nickname");
-
-const chatList = document.getElementById("chat-list");
-const messagesDiv = document.getElementById("messages");
-const chatName = document.getElementById("chat-name");
-const status = document.getElementById("status");
-const messageInput = document.getElementById("message-input");
-const sendBtn = document.getElementById("send-btn");
-const emojiBtn = document.getElementById("emoji-btn");
-const stickerBtn = document.getElementById("sticker-btn");
-const emojiPanel = document.getElementById("emoji-panel");
-const stickerPanel = document.getElementById("sticker-panel");
-
-// Login
-enterBtn.addEventListener("click", async ()=>{
-  const nick = nicknameInput.value.trim();
-  if(!nick) return alert("Ingresa un nickname");
-  const res = await fetch("/login",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({nickname:nick}) });
-  const data = await res.json();
-  if(data.success){
-    nickname = data.nickname;
-    localStorage.setItem("nickname",nickname);
-    loginScreen.style.display="none";
-    chatScreen.style.display="flex";
-    chatName.textContent = nickname;
-    status.textContent="online";
-    loadUsers();
-    loadMessages();
-  }
-});
-
-// Load users
-async function loadUsers(){
-  const res = await fetch(`/messages/${nickname}`);
-  const msgs = await res.json();
-  const users = new Set(msgs.map(m=>m.from).concat(msgs.map(m=>m.to)));
-  users.delete(nickname);
-  chatList.innerHTML="";
-  users.forEach(u=>{
-    const li = document.createElement("li");
-    li.classList.add("chat-item");
-    li.innerHTML = `<span>${u}</span><span class="online"></span>`;
-    li.addEventListener("click", ()=>{ selectChat(u); });
-    chatList.appendChild(li);
-  });
-}
-
-// Active chat
-let activeChat = null;
-function selectChat(u){
-  activeChat = u;
-  chatName.textContent = u;
-  loadMessages();
-}
-
-// Load messages
-async function loadMessages(){
-  if(!activeChat) return;
-  const res = await fetch(`/messages/${nickname}`);
-  const msgs = await res.json();
-  messagesDiv.innerHTML="";
-  msgs.filter(m=> (m.from===nickname && m.to===activeChat) || (m.from===activeChat && m.to===nickname))
-      .forEach(m=> appendMessage({text:m.text,self:m.from===nickname,time:m.time,check:m.from===nickname}));
-}
-
-// Send message
-sendBtn.addEventListener("click", sendMessage);
-messageInput.addEventListener("keypress", e=>{ if(e.key==="Enter") sendMessage(); });
-
-function sendMessage(){
-  if(!activeChat) return alert("Selecciona un chat");
-  const text = messageInput.value.trim();
-  if(!text) return;
-  const data = { from:nickname, to:activeChat, text, time:new Date().toLocaleTimeString() };
-  appendMessage({...data,self:true,check:true});
-  socket.emit("chat message", data);
-  messageInput.value="";
-}
-
-// Receive messages
-socket.on("chat message", data=>{
-  if((data.from===activeChat && data.to===nickname) || (data.from===nickname && data.to===activeChat)){
-    appendMessage({...data,self:data.from===nickname,check:data.from===nickname});
-    loadUsers();
-  }
-});
-
-// Append message
-function appendMessage(data){
-  const div = document.createElement("div");
-  div.classList.add("message");
-  div.classList.add(data.self?"self":"other");
-  const check = data.check ? '<span class="check">✔✔</span>' : '';
-  div.innerHTML=`<p>${data.text}</p><span class="time">${data.time}${check}</span>`;
-  messagesDiv.appendChild(div);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-// Emoji panel
-emojiBtn.addEventListener("click", ()=>{ emojiPanel.style.display = emojiPanel.style.display==="flex"?"none":"flex"; });
-emojiPanel.querySelectorAll("span").forEach(e=> e.addEventListener("click", ()=>{ messageInput.value += e.textContent; }));
-
-// Sticker panel
-stickerBtn.addEventListener("click", ()=>{ stickerPanel.style.display = stickerPanel.style.display==="flex"?"none":"flex"; });
-stickerPanel.querySelectorAll("img").forEach(s=> s.addEventListener("click", ()=>{ messageInput.value += ' ' + s.alt; }));
-</script>
-
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
