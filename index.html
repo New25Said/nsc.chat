@@ -1,364 +1,225 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>💬 Chat WhatsApp Style</title>
-  <link rel="stylesheet" href="styles.css">
-  <style>
-    /* Badge ADMIN */
-    .badge-admin {
-      background: black;
-      color: red;
-      font-weight: bold;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 12px;
-      margin-left: 6px;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>💬 Chat WhatsApp Style</title>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-  <!-- Chat App -->
-  <div id="chat-app">
-
-    <!-- Sidebar -->
-    <div id="sidebar">
-      <div id="sidebar-header">💬 Chat</div>
-      <input id="search-contact" placeholder="Buscar..."/>
-      <ul id="chat-list"></ul>
-
-      <div id="sidebar-buttons">
-        <button id="admin-code-btn">Ingresar Código ADMIN</button>
-        <button id="create-group-btn">Crear Grupo</button>
-      </div>
-    </div>
-
-    <!-- Panel de chat -->
-    <div id="chat-panel">
-      <div id="chat-header-panel">
-        <span id="chat-title">General</span>
-        <span id="typing-indicator"></span>
-      </div>
-      <ul id="messages"></ul>
-      <div id="input-area">
-        <input id="message-input" placeholder="Escribe un mensaje..." autocomplete="off"/>
-        <input type="file" id="image-input" style="display:none"/>
-        <button id="image-btn">📎</button>
-        <button id="send-btn">➤</button>
-      </div>
+<div id="chat-app">
+  <div id="sidebar">
+    <div id="sidebar-header">💬 Chat</div>
+    <input id="search-contact" placeholder="Buscar..."/>
+    <ul id="chat-list"></ul>
+    <div id="sidebar-buttons">
+      <button id="admin-code-btn">Ingresar Código ADMIN</button>
+      <button id="create-group-btn">Crear Grupo</button>
     </div>
   </div>
 
-  <!-- Modal nickname -->
-  <div id="nickname-modal">
-    <input id="username" placeholder="Escribe tu nickname"/>
-    <button id="join-btn">Unirse</button>
+  <div id="chat-panel">
+    <div id="chat-header-panel">
+      <span id="chat-title">General</span>
+      <span id="typing-indicator"></span>
+    </div>
+    <ul id="messages"></ul>
+    <div id="input-area">
+      <input id="message-input" placeholder="Escribe un mensaje..." autocomplete="off"/>
+      <input type="file" id="file-input" style="display:none"/>
+      <button id="file-btn">📎</button>
+      <button id="send-btn">➤</button>
+    </div>
   </div>
+</div>
 
-  <!-- Socket.IO -->
-  <script src="/socket.io/socket.io.js"></script>
+<div id="nickname-modal">
+  <input id="username" placeholder="Escribe tu nickname"/>
+  <button id="join-btn">Unirse</button>
+</div>
 
-  <script>
-    /* ==========================
-       Variables y referencias DOM
-    =========================== */
-    const socket = io();
-    let nickname = localStorage.getItem("nickname") || "";
-    let currentChat = "public";
-    let currentTarget = null;
-    let allMessages = [];
-    let unreadCounts = {};
-    let isAdmin = false;
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+let nickname = localStorage.getItem("nickname") || "";
+let currentChat = "public";
+let currentTarget = null;
+let allMessages = [];
+let unreadCounts = {};
+let isAdmin = false;
 
-    const nicknameModal = document.getElementById("nickname-modal");
-    const usernameInput = document.getElementById("username");
-    const joinBtn = document.getElementById("join-btn");
-    const messages = document.getElementById("messages");
-    const messageInput = document.getElementById("message-input");
-    const sendBtn = document.getElementById("send-btn");
-    const typingIndicator = document.getElementById("typing-indicator");
-    const chatList = document.getElementById("chat-list");
-    const chatTitle = document.getElementById("chat-title");
-    const createGroupBtn = document.getElementById("create-group-btn");
-    const imageInput = document.getElementById("image-input");
-    const imageBtn = document.getElementById("image-btn");
-    const adminBtn = document.getElementById("admin-code-btn");
+const nicknameModal = document.getElementById("nickname-modal");
+const usernameInput = document.getElementById("username");
+const joinBtn = document.getElementById("join-btn");
+const messages = document.getElementById("messages");
+const messageInput = document.getElementById("message-input");
+const sendBtn = document.getElementById("send-btn");
+const typingIndicator = document.getElementById("typing-indicator");
+const chatList = document.getElementById("chat-list");
+const chatTitle = document.getElementById("chat-title");
+const createGroupBtn = document.getElementById("create-group-btn");
+const fileInput = document.getElementById("file-input");
+const fileBtn = document.getElementById("file-btn");
+const adminBtn = document.getElementById("admin-code-btn");
 
-    const notificationSound = new Audio("https://ia801505.us.archive.org/10/items/hangouts_sfx/hangouts_message.mp3");
+const notificationSound = new Audio("https://ia801505.us.archive.org/10/items/hangouts_sfx/hangouts_message.mp3");
 
-    /* ==========================
-       Funciones de archivos
-    =========================== */
-    imageBtn.addEventListener("click", () => imageInput.click());
-    imageInput.removeAttribute("accept"); // permite cualquier tipo
-    imageInput.addEventListener("change", () => {
-      const file = imageInput.files[0];
-      if (!file) return;
+/* ==========================
+   NICKNAME Y CONEXIÓN
+========================== */
+socket.on("connect", () => {
+  if(nickname) {
+    socket.emit("set nickname", nickname);
+    nicknameModal.style.display = "none";
+  } else nicknameModal.style.display = "flex";
+});
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataURL = reader.result;
-        const fileType = file.type;
-        const extension = file.name.split(".").pop().toLowerCase();
+joinBtn.addEventListener("click", () => {
+  const name = usernameInput.value.trim();
+  if(name){
+    nickname = name;
+    localStorage.setItem("nickname", nickname);
+    nicknameModal.style.display = "none";
+    socket.emit("set nickname", nickname);
+  }
+});
 
-        const msgData = {
-          type: "file",
-          fileName: file.name,
-          fileType,
-          extension,
-          data: dataURL
-        };
+/* ==========================
+   ENVIAR MENSAJES
+========================== */
+sendBtn.addEventListener("click", () => {
+  const text = messageInput.value.trim();
+  if(!text || !nickname) return;
+  const msg = { text };
 
-        if (currentChat === "public") socket.emit("chat public", msgData);
-        else if (currentChat === "private") socket.emit("chat private", { target: currentTarget, text: "", ...msgData });
-        else if (currentChat === "group") socket.emit("chat group", { groupName: currentTarget, text: "", ...msgData });
-      };
+  if(currentChat==="public") socket.emit("chat public", msg);
+  else if(currentChat==="private") socket.emit("chat private", { target: currentTarget, ...msg });
+  else if(currentChat==="group") socket.emit("chat group", { groupName: currentTarget, ...msg });
 
-      reader.readAsDataURL(file);
-      imageInput.value = "";
-    });
+  messageInput.value="";
+});
 
-    /* ==========================
-       Nickname y conexión
-    =========================== */
-    socket.on("connect", () => {
-      if (nickname) {
-        socket.emit("set nickname", nickname);
-        nicknameModal.style.display = "none";
-      } else {
-        nicknameModal.style.display = "flex";
-      }
-    });
+messageInput.addEventListener("keypress", e => {
+  if(e.key==="Enter") sendBtn.click();
+});
 
-    joinBtn.addEventListener("click", () => {
-      const name = usernameInput.value.trim();
-      if(name){
-        nickname = name;
-        localStorage.setItem("nickname", nickname);
-        nicknameModal.style.display = "none";
-        socket.emit("set nickname", nickname);
-      }
-    });
+messageInput.addEventListener("input", () => {
+  socket.emit("typing",{type:currentChat,target:currentTarget});
+});
 
-    /* ==========================
-       Enviar mensajes
-    =========================== */
-    sendBtn.addEventListener("click", () => {
-      const text = messageInput.value.trim();
-      if(!text || !nickname) return;
+/* ==========================
+   SUBIR ARCHIVOS
+========================== */
+fileBtn.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files[0];
+  if(!file) return;
 
-      if(currentChat==="public") socket.emit("chat public", text);
-      else if(currentChat==="private") socket.emit("chat private",{target:currentTarget,text});
-      else if(currentChat==="group") socket.emit("chat group",{groupName:currentTarget,text});
+  const reader = new FileReader();
+  reader.onload = () => {
+    const data = reader.result;
+    const msg = {
+      type: "file",
+      fileName: file.name,
+      fileType: file.type,
+      extension: file.name.split(".").pop(),
+      data
+    };
 
-      messageInput.value="";
-    });
+    if(currentChat==="public") socket.emit("chat public", msg);
+    else if(currentChat==="private") socket.emit("chat private", { target: currentTarget, ...msg });
+    else if(currentChat==="group") socket.emit("chat group", { groupName: currentTarget, ...msg });
+  };
+  reader.readAsDataURL(file);
+  fileInput.value="";
+});
 
-    messageInput.addEventListener("keypress", e => {
-      if(e.key==="Enter") sendBtn.click();
-    });
+/* ==========================
+   TIPO DE MENSAJE
+========================== */
+function addMessage(msg){
+  const li = document.createElement("li");
+  li.className = "message " + (msg.name===nickname?"you":"other");
 
-    messageInput.addEventListener("input", () => {
-      socket.emit("typing",{type:currentChat,target:currentTarget});
-    });
+  let nameHTML = msg.name;
+  if(msg.isAdmin || (msg.name===nickname && isAdmin)) nameHTML += `<span class="badge-admin">ADMIN</span>`;
 
-    /* ==========================
-       Indicador escribiendo
-    =========================== */
-    socket.on("typing", data => {
-      if(data.name!==nickname){
-        typingIndicator.textContent = `${data.name} está escribiendo...`;
-        clearTimeout(window.typingTimeout);
-        window.typingTimeout = setTimeout(() => typingIndicator.textContent="", 2000);
-      }
-    });
+  let content = `<span class="name">${nameHTML}</span>`;
 
-    /* ==========================
-       ADMIN
-    =========================== */
-    adminBtn.addEventListener("click", () => {
-      const code = prompt("Ingresa el código de Admin:");
-      if(code) socket.emit("set admin", code);
-    });
+  if(msg.image) content += `<img src="${msg.image}" class="chat-image"/>`;
 
-    socket.on("admin update", nicknameAdmin => {
-      if(nicknameAdmin === nickname) {
-        isAdmin = true;
-        renderMessages();
-      }
-    });
-
-    /* ==========================
-       Mensajes
-    =========================== */
-    socket.on("chat history", history => {
-      allMessages = history;
-      renderMessages();
-    });
-
-    socket.on("chat message", msg => {
-      allMessages.push(msg);
-
-      if(msg.name !== nickname && document.hidden) notificationSound.play().catch(()=>{});
-
-      if (msg.type === "private" && msg.name !== nickname) {
-        if (currentChat !== "private" || currentTarget !== msg.name) {
-          unreadCounts[msg.name] = (unreadCounts[msg.name] || 0) + 1;
-          updateUnreadBadge(msg.name);
-        }
-      }
-
-      if (msg.type === "group" && msg.name !== nickname) {
-        if (currentChat !== "group" || currentTarget !== msg.target) {
-          unreadCounts[msg.target] = (unreadCounts[msg.target] || 0) + 1;
-          updateUnreadBadge(msg.target);
-        }
-      }
-
-      renderMessages();
-    });
-
-    /* ==========================
-       Renderizar mensajes
-    =========================== */
-    function addMessage(msg){
-      const li = document.createElement("li");
-      li.className = "message " + (msg.name===nickname?"you":"other");
-
-      let nameHTML = msg.name;
-      if(msg.isAdmin || (msg.name===nickname && isAdmin)){
-        nameHTML += `<span class="badge-admin">ADMIN</span>`;
-      }
-
-      let content = `<span class="name">${nameHTML}</span>`;
-
-      // Vista previa de archivos
-      if (msg.type === "image" && msg.image) {
-        content += `<img src="${msg.image}" alt="imagen" class="chat-image"/>`;
-      }
-      else if (msg.type === "file" && msg.data) {
-        if (msg.fileType.startsWith("image/")) {
-          content += `<img src="${msg.data}" alt="${msg.fileName}" class="chat-image"/>`;
-        } else if (msg.fileType.startsWith("audio/")) {
-          content += `<audio controls src="${msg.data}"></audio>`;
-        } else if (msg.fileType.startsWith("video/")) {
-          content += `<video controls src="${msg.data}" style="max-width:200px;max-height:200px;"></video>`;
-        } else if (msg.extension === "html") {
-          const code = atob(msg.data.split(',')[1]);
-          content += `<pre style="background:#f0f0f0;padding:6px;border-radius:6px;overflow:auto;">${code}</pre>`;
-          content += `<button onclick="navigator.clipboard.writeText(\`${code}\`)">Copiar código</button>`;
-        } else {
-          content += `<span class="text">Archivo: ${msg.fileName}</span>`;
-        }
-      }
-
-      if(msg.text) content += `<span class="text">${msg.text}</span>`;
-      content += `<span class="time">${new Date(msg.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
-
-      li.innerHTML = content;
-      messages.appendChild(li);
-      messages.scrollTop = messages.scrollHeight;
+  // Archivos
+  if(msg.type==="file"){
+    if(msg.fileType.startsWith("image/")) content += `<img src="${msg.data}" class="chat-image"/>`;
+    else if(msg.fileType.startsWith("audio/")) content += `<audio controls src="${msg.data}"></audio>`;
+    else if(msg.fileType.startsWith("video/")) content += `<video controls src="${msg.data}"></video>`;
+    else if(msg.extension==="html") {
+      content += `<pre><code>${atob(msg.data.split(",")[1])}</code></pre>`;
+      content += `<button onclick="navigator.clipboard.writeText(atob('${msg.data.split(",")[1]}'))">Copiar HTML</button>`;
+    } else {
+      content += `<a href="${msg.data}" download="${msg.fileName}">Descargar ${msg.fileName}</a>`;
     }
+  }
 
-    function renderMessages(){
-      messages.innerHTML = "";
-      allMessages.forEach(msg=>{
-        if(currentChat==="public" && (msg.type==="public" || msg.type==="file" || msg.type==="image")) addMessage(msg);
-        else if(currentChat==="private" && (msg.type==="private" || msg.type==="file" || msg.type==="image")){
-          if((msg.name===nickname && msg.target===currentTarget) || (msg.name===currentTarget && msg.target===nickname))
-            addMessage(msg);
-        }
-        else if(currentChat==="group" && (msg.type==="group" || msg.type==="file" || msg.type==="image") && msg.target===currentTarget){
-          addMessage(msg);
-        }
-      });
+  if(msg.text) content += `<span class="text">${msg.text}</span>`;
+
+  const t = new Date(msg.time);
+  content += `<span class="time">${isNaN(t)? new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
+
+  li.innerHTML = content;
+  messages.appendChild(li);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+/* ==========================
+   RENDER MENSAJES
+========================== */
+function renderMessages(){
+  messages.innerHTML="";
+  allMessages.forEach(msg=>{
+    if(currentChat==="public" && msg.type==="public" || msg.type==="file") addMessage(msg);
+    else if(currentChat==="private" && msg.type==="private"){
+      if((msg.name===nickname && msg.target===currentTarget) || (msg.name===currentTarget && msg.target===nickname))
+        addMessage(msg);
+    } else if(currentChat==="group" && msg.type==="group" && msg.target===currentTarget){
+      addMessage(msg);
     }
+  });
+}
 
-    /* ==========================
-       Badges de mensajes no leídos
-    =========================== */
-    function updateUnreadBadge(nameOrGroup) {
-      const lis = chatList.querySelectorAll("li");
-      lis.forEach(li => {
-        if (li.textContent.startsWith(nameOrGroup)) {
-          const oldBadge = li.querySelector(".unread-badge");
-          if (oldBadge) oldBadge.remove();
-          const count = unreadCounts[nameOrGroup];
-          if (count > 0) {
-            const badge = document.createElement("span");
-            badge.className = "unread-badge";
-            badge.textContent = count;
-            li.appendChild(badge);
-          }
-        }
-      });
-    }
+/* ==========================
+   SOCKET EVENTS
+========================== */
+socket.on("chat history", history => { allMessages = history; renderMessages(); });
+socket.on("chat message", msg => { allMessages.push(msg); renderMessages(); });
+socket.on("typing", data => {
+  if(data.name!==nickname){
+    typingIndicator.textContent = `${data.name} está escribiendo...`;
+    clearTimeout(window.typingTimeout);
+    window.typingTimeout = setTimeout(()=>typingIndicator.textContent="",2000);
+  }
+});
+socket.on("user list", users => { chatList.innerHTML=""; users.forEach(user=>{
+  const li = document.createElement("li"); li.textContent = user; li.className="contact";
+  li.addEventListener("click", ()=>selectChat("private",user));
+  chatList.appendChild(li);
+});});
+socket.on("group list", groups => { groups.forEach(group=>{
+  const li = document.createElement("li"); li.textContent = group; li.className="group";
+  li.addEventListener("click", ()=>selectChat("group",group));
+  chatList.appendChild(li);
+});});
 
-    /* ==========================
-       Lista de usuarios
-    =========================== */
-    socket.on("user list", users => {
-      chatList.innerHTML="";
-      const generalLi = document.createElement("li");
-      generalLi.textContent="General";
-      generalLi.className="public";
-      generalLi.addEventListener("click", ()=>selectChat("public"));
-      chatList.appendChild(generalLi);
-
-      users.forEach(user=>{
-        if(user!==nickname){
-          const li = document.createElement("li");
-          li.textContent = user;
-          li.className="contact";
-          li.addEventListener("click", ()=>selectChat("private", user));
-          chatList.appendChild(li);
-        }
-      });
-    });
-
-    /* ==========================
-       Lista de grupos
-    =========================== */
-    socket.on("group list", groups => {
-      groups.forEach(group=>{
-        const li = document.createElement("li");
-        li.textContent = group;
-        li.className="group";
-        li.addEventListener("click", ()=>selectChat("group", group));
-        chatList.appendChild(li);
-      });
-    });
-
-    /* ==========================
-       Crear grupo
-    =========================== */
-    createGroupBtn.addEventListener("click", () => {
-      const name = prompt("Nombre del grupo:");
-      const members = prompt("Miembros separados por coma:").split(",").map(m=>m.trim());
-      if(name && members.length>0){
-        members.push(nickname);
-        socket.emit("create group",{groupName:name,members});
-      }
-    });
-
-    /* ==========================
-       Cambiar chat
-    =========================== */
-    function selectChat(type, target=null){
-      currentChat = type;
-      currentTarget = target;
-      chatTitle.textContent = target || "General";
-
-      if(target && unreadCounts[target]){
-        delete unreadCounts[target];
-        updateUnreadBadge(target);
-      }
-
-      renderMessages();
-    }
-
-  </script>
-
+/* ==========================
+   SELECCIONAR CHAT
+========================== */
+function selectChat(type, target=null){
+  currentChat = type;
+  currentTarget = target;
+  chatTitle.textContent = target || "General";
+  if(target && unreadCounts[target]) { delete unreadCounts[target]; }
+  renderMessages();
+}
+</script>
 </body>
 </html>
