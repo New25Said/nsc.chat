@@ -1,28 +1,197 @@
-body, html{margin:0;padding:0;height:100%;font-family:Arial,sans-serif}
-#chat-app{display:flex;height:100vh}
-#sidebar{width:280px;background:#f0f0f0;display:flex;flex-direction:column;border-right:1px solid #ccc}
-#sidebar-header{padding:15px;background:#075e54;color:#fff;font-weight:bold}
-#search-contact{margin:10px;padding:8px;border-radius:20px;border:1px solid #ccc;outline:none}
-#chat-list{flex:1;overflow-y:auto;list-style:none;padding:0;margin:0}
-#chat-list li{padding:10px 15px;cursor:pointer;border-bottom:1px solid #e6e6e6}
-#chat-list li.contact:hover,#chat-list li.group:hover,#chat-list li.public:hover{background:#e0e0e0;border-radius:5px}
-#chat-panel{flex:1;display:flex;flex-direction:column;background:#ece5dd}
-#chat-header-panel{padding:15px;background:#075e54;color:#fff;font-weight:bold;display:flex;justify-content:space-between;align-items:center}
-#messages{flex:1;overflow-y:auto;padding:15px;display:flex;flex-direction:column;gap:8px}
-.message{max-width:70%;padding:8px 12px;border-radius:12px;display:flex;flex-direction:column;gap:2px;box-shadow:0 1px 1px rgba(0,0,0,.1)}
-.message.you{align-self:flex-end;background:#dcf8c6;border-top-right-radius:4px}
-.message.other{align-self:flex-start;background:#fff;border-top-left-radius:4px}
-.message .name{font-weight:bold;font-size:13px;opacity:.9;display:flex;align-items:center;gap:6px}
-.message .text{word-wrap:break-word;white-space:pre-wrap}
-.message .time{font-size:11px;color:#666;align-self:flex-end}
-#input-area{display:flex;padding:10px;background:#f0f0f0;border-top:1px solid #ccc}
-#message-input{flex:1;padding:10px;border-radius:20px;border:1px solid #ccc;outline:none}
-#send-btn{padding:0 16px;border:none;background:#075e54;color:#fff;border-radius:20px;cursor:pointer}
-#send-btn:hover{filter:brightness(1.1)}
-#nickname-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);display:none;justify-content:center;align-items:center;flex-direction:column;gap:10px}
-#nickname-modal input{padding:10px 12px;border-radius:20px;border:1px solid #ccc;outline:none}
-#nickname-modal button{padding:10px 16px;border:none;background:#075e54;color:#fff;border-radius:20px;cursor:pointer}
-#nickname-modal button:hover{filter:brightness(1.1)}
+/* Reset y fuente */
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: Arial, sans-serif;
+}
+
+/* Contenedor principal */
+#chat-app {
+  display: flex;
+  height: 100vh;
+}
+
+/* Sidebar */
+#sidebar {
+  width: 280px;
+  background: #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #ccc;
+}
+
+#sidebar-header {
+  padding: 15px;
+  background: #075e54;
+  color: #fff;
+  font-weight: bold;
+}
+
+#search-contact {
+  margin: 10px;
+  padding: 8px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  outline: none;
+}
+
+#chat-list {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#chat-list li {
+  padding: 10px 15px;
+  cursor: pointer;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+#chat-list li.contact:hover,
+#chat-list li.group:hover,
+#chat-list li.public:hover {
+  background: #e0e0e0;
+  border-radius: 5px;
+}
+
+/* Chat panel */
+#chat-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #ece5dd;
+}
+
+#chat-header-panel {
+  padding: 15px;
+  background: #075e54;
+  color: #fff;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Mensajes */
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.message {
+  max-width: 70%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 1px 1px rgba(0,0,0,.1);
+}
+
+.message.you {
+  align-self: flex-end;
+  background: #dcf8c6;
+  border-top-right-radius: 4px;
+}
+
+.message.other {
+  align-self: flex-start;
+  background: #fff;
+  border-top-left-radius: 4px;
+}
+
+.message .name {
+  font-weight: bold;
+  font-size: 13px;
+  opacity: .9;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.message .text {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.message .time {
+  font-size: 11px;
+  color: #666;
+  align-self: flex-end;
+}
+
+/* Área de entrada */
+#input-area {
+  display: flex;
+  padding: 10px;
+  background: #f0f0f0;
+  border-top: 1px solid #ccc;
+}
+
+#message-input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  outline: none;
+}
+
+#send-btn {
+  padding: 0 16px;
+  border: none;
+  background: #075e54;
+  color: #fff;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+#send-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* Modal nickname */
+#nickname-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,.4);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#nickname-modal input {
+  padding: 10px 12px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  outline: none;
+}
+
+#nickname-modal button {
+  padding: 10px 16px;
+  border: none;
+  background: #075e54;
+  color: #fff;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+#nickname-modal button:hover {
+  filter: brightness(1.1);
+}
+
+/* Unread badges */
 .unread-badge {
   display: inline-block;
   background: red;
@@ -33,6 +202,8 @@ body, html{margin:0;padding:0;height:100%;font-family:Arial,sans-serif}
   padding: 2px 6px;
   margin-left: 8px;
 }
+
+/* Imagenes en chat */
 .chat-image {
   max-width: 200px;
   max-height: 200px;
@@ -40,6 +211,8 @@ body, html{margin:0;padding:0;height:100%;font-family:Arial,sans-serif}
   margin-top: 4px;
   object-fit: cover;
 }
+
+/* Botón subir imagen/archivo */
 #image-btn {
   border: none;
   background: none;
@@ -51,53 +224,24 @@ body, html{margin:0;padding:0;height:100%;font-family:Arial,sans-serif}
   cursor: pointer;
   border-radius: 50%;
 }
-#image-btn:hover { background: rgba(0,0,0,0.05); }
 
-/* Header right (typing + botón admin) */
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+#image-btn:hover {
+  background: rgba(0,0,0,0.05);
 }
-#admin-code-btn{
-  border:none;
-  background:#064a43;
-  color:#fff;
-  border-radius:16px;
-  padding:6px 10px;
-  cursor:pointer;
-  font-weight:600;
-}
-#admin-code-btn:hover{ filter:brightness(1.1); }
 
-/* Insignia ADMIN: texto rojo con delineado negro y fondo oscuro */
-.badge-admin{
-  display:inline-block;
-  padding:2px 6px;
-  border-radius:6px;
-  background:rgba(0,0,0,0.85);
-  color:black;               /* rojo vivo para el texto */
-  font-weight:900;
-  letter-spacing:0.5px;
-  /* delineado negro alrededor del texto */
-  text-shadow:
-    -1px -1px 0 #000,
-     1px -1px 0 #000,
-    -1px  1px 0 #000,
-     1px  1px 0 #000;
-}
+/* Botones sidebar */
 #sidebar-buttons {
   display: flex;
   flex-direction: column;
   padding: 10px;
-  gap: 10px; /* espacio entre botones */
-  margin-top: auto; /* separa de la parte inferior */
+  gap: 10px;
+  margin-top: auto;
 }
 
 #sidebar-buttons button {
   padding: 10px 16px;
   border: none;
-  background: #075E54;  /* color del botón ADMIN */
+  background: #075E54;
   color: #fff;
   border-radius: 20px;
   cursor: pointer;
@@ -108,7 +252,25 @@ body, html{margin:0;padding:0;height:100%;font-family:Arial,sans-serif}
 #sidebar-buttons button:hover {
   filter: brightness(1.1);
 }
+
+/* Insignia ADMIN */
+.badge-admin {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.85);
+  color: red;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-shadow:
+    -1px -1px 0 #000,
+     1px -1px 0 #000,
+    -1px  1px 0 #000,
+     1px  1px 0 #000;
+}
+
+/* Mensajes de admin */
 .admin-message {
-  font-style: italic; /* inclinado */
-  color: gray;        /* gris */
+  font-style: italic;
+  color: gray;
 }
