@@ -71,7 +71,6 @@ io.on("connection", (socket) => {
     socket.emit("chat history", chatHistory);
     socket.emit("group list", Object.keys(groups));
 
-    // Enviar estado admin si corresponde
     if (admins[nickname]) {
       socket.emit("admin update", nickname);
       console.log(`🔑 ${nickname} se reconecta como ADMIN`);
@@ -80,7 +79,7 @@ io.on("connection", (socket) => {
 
   // Código ADMIN
   socket.on("set admin", (code) => {
-    const ADMIN_CODE = "coolkid-admin"; // <-- tu código secreto
+    const ADMIN_CODE = "coolkid-admin";
     const nickname = users[socket.id];
     if (code === ADMIN_CODE && nickname) {
       admins[nickname] = true;
@@ -93,17 +92,31 @@ io.on("connection", (socket) => {
   // Crear mensaje
   function createMessage(msg, type, target = null) {
     const nickname = users[socket.id];
-    const isImage = typeof msg === "object" && msg.type === "image";
+
+    let isImage = false;
+    let isFile = false;
+    let fileData = null;
+
+    if (typeof msg === "object" && msg.type === "image") isImage = true;
+    else if (typeof msg === "object" && msg.type === "file") {
+      isFile = true;
+      fileData = {
+        fileName: msg.fileName,
+        fileType: msg.fileType,
+        extension: msg.extension,
+        data: msg.data
+      };
+    }
 
     return {
       id: socket.id,
       name: nickname,
-      text: isImage ? "" : (type === "public" ? msg : msg.text),
+      text: isImage || isFile ? "" : (type === "public" ? msg : msg.text),
       image: isImage ? msg.data : null,
-      time: Date.now(),
-      type,
+      type: type === "file" ? "file" : type,
       target,
       isAdmin: admins[nickname] || false,
+      ...fileData
     };
   }
 
@@ -159,9 +172,7 @@ io.on("connection", (socket) => {
       socket.broadcast.emit("typing", { name: users[socket.id], type, target: null });
     } else if (type === "private" && target) {
       const targetId = Object.keys(users).find((id) => users[id] === target);
-      if (targetId) {
-        io.to(targetId).emit("typing", { name: users[socket.id], type, target });
-      }
+      if (targetId) io.to(targetId).emit("typing", { name: users[socket.id], type, target });
     } else if (type === "group" && target) {
       groups[target].forEach((nick) => {
         const sid = Object.keys(users).find((id) => users[id] === nick);
@@ -180,6 +191,5 @@ io.on("connection", (socket) => {
   });
 });
 
-// Puerto del servidor
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`✅ Servidor chat listo en puerto ${PORT}`));
