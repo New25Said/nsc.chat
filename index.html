@@ -2,233 +2,36 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>💬 Chat WhatsApp Style</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp Web Simulado</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <div id="chat-app">
   <div id="sidebar">
-    <div id="sidebar-header">💬 Chat</div>
-    <input id="search-contact" placeholder="Buscar..."/>
-    <ul id="chat-list"></ul>
-    <div id="sidebar-buttons">
-      <button id="admin-code-btn">Ingresar Código ADMIN</button>
-      <button id="create-group-btn">Crear Grupo</button>
-    </div>
+    <div id="sidebar-header">💬 Chats</div>
+    <input id="search-contact" placeholder="Buscar...">
+    <ul id="chat-list">
+      <!-- Lista de chats -->
+      <li class="chat-item active" data-name="Usuario 1">Usuario 1</li>
+      <li class="chat-item" data-name="Usuario 2">Usuario 2</li>
+    </ul>
   </div>
 
-  <div id="chat-panel">
-    <div id="chat-header-panel">
-      <span id="chat-title">General</span>
-      <span id="typing-indicator"></span>
+  <div id="chat-window">
+    <div id="chat-header">
+      <span id="chat-name">Usuario 1</span>
     </div>
-    <ul id="messages"></ul>
-    <div id="input-area">
-      <input id="message-input" placeholder="Escribe un mensaje..." autocomplete="off"/>
-      <input type="file" id="file-input" style="display:none"/>
-      <button id="file-btn">📎</button>
-      <button id="send-btn">➤</button>
+    <div id="messages"></div>
+    <div id="chat-input">
+      <input id="message-input" placeholder="Escribe un mensaje..." />
+      <button id="send-btn">Enviar</button>
     </div>
   </div>
-</div>
-
-<div id="nickname-modal">
-  <input id="username" placeholder="Escribe tu nickname"/>
-  <button id="join-btn">Unirse</button>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script>
-const socket = io();
-let nickname = localStorage.getItem("nickname") || "";
-let currentChat = "public";
-let currentTarget = null;
-let allMessages = [];
-let unreadCounts = {};
-let isAdmin = false;
-
-const nicknameModal = document.getElementById("nickname-modal");
-const usernameInput = document.getElementById("username");
-const joinBtn = document.getElementById("join-btn");
-const messages = document.getElementById("messages");
-const messageInput = document.getElementById("message-input");
-const sendBtn = document.getElementById("send-btn");
-const typingIndicator = document.getElementById("typing-indicator");
-const chatList = document.getElementById("chat-list");
-const chatTitle = document.getElementById("chat-title");
-const createGroupBtn = document.getElementById("create-group-btn");
-const fileInput = document.getElementById("file-input");
-const fileBtn = document.getElementById("file-btn");
-const adminBtn = document.getElementById("admin-code-btn");
-
-const notificationSound = new Audio("https://ia801505.us.archive.org/10/items/hangouts_sfx/hangouts_message.mp3");
-
-/* ==========================
-   NICKNAME Y CONEXIÓN
-========================== */
-socket.on("connect", () => {
-  if(nickname) {
-    socket.emit("set nickname", nickname);
-    nicknameModal.style.display = "none";
-  } else nicknameModal.style.display = "flex";
-});
-
-joinBtn.addEventListener("click", () => {
-  const name = usernameInput.value.trim();
-  if(name){
-    nickname = name;
-    localStorage.setItem("nickname", nickname);
-    nicknameModal.style.display = "none";
-    socket.emit("set nickname", nickname);
-  }
-});
-
-/* ==========================
-   ENVIAR MENSAJES
-========================== */
-sendBtn.addEventListener("click", () => {
-  const text = messageInput.value.trim();
-  if(!text || !nickname) return;
-  const msg = { text };
-
-  if(currentChat==="public") socket.emit("chat public", msg);
-  else if(currentChat==="private") socket.emit("chat private", { target: currentTarget, ...msg });
-  else if(currentChat==="group") socket.emit("chat group", { groupName: currentTarget, ...msg });
-
-  messageInput.value="";
-});
-
-messageInput.addEventListener("keypress", e => {
-  if(e.key==="Enter") sendBtn.click();
-});
-
-messageInput.addEventListener("input", () => {
-  socket.emit("typing",{type:currentChat,target:currentTarget});
-});
-
-/* ==========================
-   SUBIR ARCHIVOS
-========================== */
-fileBtn.addEventListener("click", () => fileInput.click());
-fileInput.addEventListener("change", () => {
-  const file = fileInput.files[0];
-  if(!file) return;
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    const data = reader.result;
-    const msg = {
-      type: "file",
-      fileName: file.name,
-      fileType: file.type,
-      extension: file.name.split(".").pop(),
-      data
-    };
-
-    if(currentChat==="public") socket.emit("chat public", msg);
-    else if(currentChat==="private") socket.emit("chat private", { target: currentTarget, ...msg });
-    else if(currentChat==="group") socket.emit("chat group", { groupName: currentTarget, ...msg });
-  };
-  reader.readAsDataURL(file);
-  fileInput.value="";
-});
-
-/* ==========================
-   TIPO DE MENSAJE
-========================== */
-function addMessage(msg){
-  const li = document.createElement("li");
-  li.className = "message " + (msg.name===nickname?"you":"other");
-
-  let nameHTML = msg.name;
-  if(msg.isAdmin || (msg.name===nickname && isAdmin)) nameHTML += `<span class="badge-admin">ADMIN</span>`;
-
-  let content = `<span class="name">${nameHTML}</span>`;
-
-  if(msg.image) content += `<img src="${msg.image}" class="chat-image"/>`;
-
-  // Archivos
-  if(msg.type==="file"){
-    if(msg.fileType.startsWith("image/")) content += `<img src="${msg.data}" class="chat-image"/>`;
-    else if(msg.fileType.startsWith("audio/")) content += `<audio controls src="${msg.data}"></audio>`;
-    else if(msg.fileType.startsWith("video/")) content += `<video controls src="${msg.data}"></video>`;
-    else if(msg.extension==="html") {
-      content += `<pre><code>${atob(msg.data.split(",")[1])}</code></pre>`;
-      content += `<button onclick="navigator.clipboard.writeText(atob('${msg.data.split(",")[1]}'))">Copiar HTML</button>`;
-    } else {
-      content += `<a href="${msg.data}" download="${msg.fileName}">Descargar ${msg.fileName}</a>`;
-    }
-  }
-
-  if(msg.text) content += `<span class="text">${msg.text}</span>`;
-
-  const t = new Date(msg.time);
-  content += `<span class="time">${isNaN(t)? new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
-
-  li.innerHTML = content;
-  messages.appendChild(li);
-  messages.scrollTop = messages.scrollHeight;
-}
-
-/* ==========================
-   RENDER MENSAJES
-========================== */
-function renderMessages(){
-  messages.innerHTML="";
-  allMessages.forEach(msg=>{
-    if(currentChat==="public" && (msg.type==="public"||msg.type==="file")) addMessage(msg);
-    else if(currentChat==="private" && msg.type==="private"){
-      if((msg.name===nickname && msg.target===currentTarget) || (msg.name===currentTarget && msg.target===nickname))
-        addMessage(msg);
-    } else if(currentChat==="group" && msg.type==="group" && msg.target===currentTarget){
-      addMessage(msg);
-    }
-  });
-}
-
-/* ==========================
-   SOCKET EVENTS
-========================== */
-socket.on("chat history", history => { allMessages = history; renderMessages(); });
-socket.on("chat message", msg => { allMessages.push(msg); renderMessages(); });
-socket.on("typing", data => {
-  if(data.name!==nickname){
-    typingIndicator.textContent = `${data.name} está escribiendo...`;
-    clearTimeout(window.typingTimeout);
-    window.typingTimeout = setTimeout(()=>typingIndicator.textContent="",2000);
-  }
-});
-socket.on("user list", users => { 
-  chatList.innerHTML=""; 
-  users.forEach(user=>{
-    const li = document.createElement("li"); 
-    li.textContent = user; 
-    li.className="contact";
-    li.addEventListener("click", ()=>selectChat("private",user));
-    chatList.appendChild(li);
-  });
-});
-socket.on("group list", groups => { 
-  groups.forEach(group=>{
-    const li = document.createElement("li"); 
-    li.textContent = group; 
-    li.className="group";
-    li.addEventListener("click", ()=>selectChat("group",group));
-    chatList.appendChild(li);
-  });
-});
-
-/* ==========================
-   SELECCIONAR CHAT
-========================== */
-function selectChat(type, target=null){
-  currentChat = type;
-  currentTarget = target;
-  chatTitle.textContent = target || "General";
-  if(target && unreadCounts[target]) { delete unreadCounts[target]; }
-  renderMessages();
-}
-</script>
+<script src="script.js"></script>
 </body>
 </html>
