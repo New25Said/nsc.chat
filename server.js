@@ -69,7 +69,6 @@ io.on("connection", (socket) => {
     socket.emit("chat history", chatHistory);
     socket.emit("group list", Object.keys(groups));
 
-    // Enviar estado admin si corresponde
     if (admins[nickname]) {
       socket.emit("admin update", nickname);
       console.log(`🔑 ${nickname} se reconecta como ADMIN`);
@@ -78,7 +77,7 @@ io.on("connection", (socket) => {
 
   // Código ADMIN
   socket.on("set admin", (code) => {
-    const ADMIN_CODE = "coolkid-admin"; // <-- tu código secreto
+    const ADMIN_CODE = "coolkid-admin";
     const nickname = users[socket.id];
     if (code === ADMIN_CODE && nickname && !admins[nickname]) {
       admins[nickname] = true;
@@ -87,12 +86,12 @@ io.on("connection", (socket) => {
       io.emit("admin update", nickname);
       console.log(`✅ ${nickname} es ahora ADMIN`);
 
-      // Crear mensaje normal en chat general
       const adminMessage = {
         id: socket.id,
         name: nickname,
         text: `${nickname} se ha vuelto admin!`,
         image: null,
+        file: null,
         time: Date.now(),
         type: "public",
         target: null,
@@ -105,15 +104,16 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Crear mensaje con propiedad isAdmin
   function createMessage(msg, type, target = null) {
     const nickname = users[socket.id];
     const isImage = typeof msg === "object" && msg.type === "image";
+    const isFile = typeof msg === "object" && msg.type === "file";
     return {
       id: socket.id,
       name: nickname,
-      text: isImage ? "" : (type === "public" ? msg : msg.text),
+      text: isImage || isFile ? "" : (type === "public" ? msg : msg.text),
       image: isImage ? msg.data : null,
+      file: isFile ? { data: msg.data, name: msg.name, mime: msg.mime } : null,
       time: Date.now(),
       type,
       target,
@@ -180,7 +180,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Desconexión
   socket.on("disconnect", () => {
     console.log("❌ Usuario desconectado:", socket.id);
     delete users[socket.id];
