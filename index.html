@@ -12,10 +12,11 @@
     <div id="sidebar-header">💬 Chat</div>
     <input id="search-contact" placeholder="Buscar..."/>
     <ul id="chat-list"></ul>
-<div id="sidebar-buttons">
-  <button id="admin-code-btn">Ingresar Código ADMIN</button>
-  <button id="create-group-btn">Crear Grupo</button>
-</div>
+    <div id="sidebar-buttons">
+      <button id="admin-code-btn">Ingresar Código ADMIN</button>
+      <button id="create-group-btn">Crear Grupo</button>
+      <button id="upload-file-btn">📎 Subir Archivo</button>
+    </div>
   </div>
 
   <div id="chat-panel">
@@ -27,7 +28,7 @@
     <div id="input-area">
       <input id="message-input" placeholder="Escribe un mensaje..." autocomplete="off"/>
       <input type="file" id="image-input" accept="image/*" style="display:none"/>
-      <button id="image-btn">📎</button>
+      <button id="image-btn">📷</button>
       <button id="send-btn">➤</button>
     </div>
   </div>
@@ -63,6 +64,7 @@ const createGroupBtn = document.getElementById("create-group-btn");
 const imageInput = document.getElementById("image-input");
 const imageBtn = document.getElementById("image-btn");
 const adminBtn = document.getElementById("admin-code-btn");
+const uploadFileBtn = document.getElementById("upload-file-btn");
 
 // Sonido de notificación
 const notificationSound = new Audio("https://ia801505.us.archive.org/10/items/hangouts_sfx/hangouts_message.mp3");
@@ -82,6 +84,27 @@ imageInput.addEventListener("change", () => {
   };
   reader.readAsDataURL(file);
   imageInput.value = "";
+});
+
+// Archivos generales
+const fileInput = document.createElement("input");
+fileInput.type = "file";
+fileInput.style.display = "none";
+document.body.appendChild(fileInput);
+
+uploadFileBtn.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const msgObj = { type: "file", data: reader.result, fileName: file.name };
+    if (currentChat === "public") socket.emit("chat public", msgObj);
+    else if (currentChat === "private") socket.emit("chat private", { target: currentTarget, ...msgObj });
+    else if (currentChat === "group") socket.emit("chat group", { groupName: currentTarget, ...msgObj });
+  };
+  reader.readAsDataURL(file);
+  fileInput.value = "";
 });
 
 // Nickname
@@ -172,6 +195,7 @@ socket.on("chat message", msg=>{
 function addMessage(msg){
   const li = document.createElement("li");
   li.className = "message " + (msg.name===nickname?"you":"other");
+  if(msg.isAdmin) li.classList.add("admin-message");
 
   let nameHTML = msg.name;
   if(msg.isAdmin || (msg.name===nickname && isAdmin)){
@@ -180,10 +204,11 @@ function addMessage(msg){
 
   let content = `<span class="name">${nameHTML}</span>`;
   if(msg.image) content += `<img src="${msg.image}" alt="imagen" class="chat-image"/>`;
+  if(msg.fileName) content += `<a href="${msg.fileData}" download="${msg.fileName}" class="file-link">${msg.fileName}</a>`;
   if(msg.text){
-  const textClass = msg.isAdmin ? "text admin-message" : "text";
-  content += `<span class="${textClass}">${msg.text}</span>`;
-}
+    const textClass = msg.isAdmin ? "text admin-message" : "text";
+    content += `<span class="${textClass}">${msg.text}</span>`;
+  }
   content += `<span class="time">${new Date(msg.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
   li.innerHTML = content;
   messages.appendChild(li);
@@ -279,13 +304,28 @@ function selectChat(type, target=null){
 
 <style>
 .badge-admin {
-  background: black;
-  color: red;
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 12px;
-  margin-left: 6px;
+  display:inline-block;
+  padding:2px 6px;
+  border-radius:6px;
+  background:rgba(0,0,0,0.85);
+  color:red;
+  font-weight:900;
+  letter-spacing:0.5px;
+  text-shadow:
+    -1px -1px 0 #000,
+     1px -1px 0 #000,
+    -1px  1px 0 #000,
+     1px  1px 0 #000;
+}
+.admin-message {
+  font-style: italic;
+  color: gray;
+}
+.file-link {
+  display:block;
+  color:#064a43;
+  text-decoration:underline;
+  margin-top:4px;
 }
 </style>
 
