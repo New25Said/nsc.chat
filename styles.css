@@ -108,4 +108,8 @@ body, html{margin:0;padding:0;height:100%;font-family:Arial,sans-serif}
 #sidebar-buttons button:hover {
   filter: brightness(1.1);
 }
+.admin-message {
+  font-style: italic; /* inclinado */
+  color: gray;        /* gris */
+}
 
