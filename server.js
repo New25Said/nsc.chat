@@ -12,20 +12,17 @@ const io = new Server(server);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 🔴 Aquí pones tu cadena de conexión directo
+// 🔴 Conexión Mongo directa (pon tu usuario y pass)
 const MONGO_URI = "mongodb+srv://USUARIO:CONTRASEÑA@cluster.mongodb.net/nsc-chat";
 
-// Servir archivos estáticos desde /public
 app.use(express.static(path.join(__dirname, "public")));
 
-// Conexión MongoDB
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).then(() => console.log("✅ MongoDB conectado"))
   .catch(err => console.error("❌ Error MongoDB:", err));
 
-// Esquema y modelo de mensajes
 const MessageSchema = new mongoose.Schema({
   sender: String,
   text: String,
@@ -33,20 +30,17 @@ const MessageSchema = new mongoose.Schema({
 });
 const Message = mongoose.model("Message", MessageSchema);
 
-// WebSockets
 io.on("connection", (socket) => {
   console.log("🟢 Usuario conectado:", socket.id);
 
-  // Mandar historial al nuevo usuario
   Message.find().sort({ timestamp: 1 }).then(messages => {
     socket.emit("chat-history", messages);
   });
 
-  // Cuando alguien envía un mensaje
   socket.on("chat-message", async (msg) => {
     const message = new Message(msg);
     await message.save();
-    io.emit("chat-message", message); // broadcast
+    io.emit("chat-message", message);
   });
 
   socket.on("disconnect", () => {
@@ -54,7 +48,6 @@ io.on("connection", (socket) => {
   });
 });
 
-// Render usa el puerto de env o 3000
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
