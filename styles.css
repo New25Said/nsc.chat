@@ -40,7 +40,7 @@ body, html{margin:0;padding:0;height:100%;font-family:Arial,sans-serif}
   margin-top: 4px;
   object-fit: cover;
 }
-#image-btn {
+#file-btn {
   border: none;
   background: none;
   width: 36px;
@@ -49,9 +49,13 @@ body, html{margin:0;padding:0;height:100%;font-family:Arial,sans-serif}
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border-radius: 50%;
+  border-radius: 50%; /* opcional, para que siga siendo circular */
 }
-#image-btn:hover { background: rgba(0,0,0,0.05); }
+
+#file-btn:hover {
+  background: rgba(0,0,0,0.05); /* efecto hover ligero */
+}
+
 
 /* Header right (typing + botón admin) */
 .header-right {
