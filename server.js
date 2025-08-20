@@ -82,7 +82,6 @@ io.on("connection", (socket) => {
     if (code === ADMIN_CODE && nickname && !admins[nickname]) {
       admins[nickname] = true;
       saveAdmins();
-
       io.emit("admin update", nickname);
       console.log(`✅ ${nickname} es ahora ADMIN`);
 
@@ -91,7 +90,6 @@ io.on("connection", (socket) => {
         name: nickname,
         text: `${nickname} se ha vuelto admin!`,
         image: null,
-        file: null,
         time: Date.now(),
         type: "public",
         target: null,
@@ -106,22 +104,22 @@ io.on("connection", (socket) => {
 
   function createMessage(msg, type, target = null) {
     const nickname = users[socket.id];
-    const isImage = typeof msg === "object" && msg.type === "image";
-    const isFile = typeof msg === "object" && msg.type === "file";
+    const isImage = msg.type === "image";
+    const isFile = msg.type === "file";
     return {
       id: socket.id,
       name: nickname,
-      text: isImage || isFile ? "" : (type === "public" ? msg : msg.text),
+      text: isImage || isFile ? "" : (type === "public" ? msg.text || msg : msg.text),
       image: isImage ? msg.data : null,
-      file: isFile ? { data: msg.data, name: msg.name, mime: msg.mime } : null,
+      fileName: isFile ? msg.fileName : null,
+      fileData: isFile ? msg.data : null,
       time: Date.now(),
-      type,
+      type: type === "public" ? "public" : type,
       target,
       isAdmin: admins[nickname] || false
     };
   }
 
-  // Mensajes públicos
   socket.on("chat public", (msg) => {
     const message = createMessage(msg, "public");
     chatHistory.push(message);
@@ -129,7 +127,6 @@ io.on("connection", (socket) => {
     io.emit("chat message", message);
   });
 
-  // Mensajes privados
   socket.on("chat private", (msg) => {
     const target = msg.target;
     const targetId = Object.keys(users).find((id) => users[id] === target);
@@ -142,7 +139,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Mensajes de grupo
   socket.on("chat group", (msg) => {
     const groupName = msg.groupName;
     if (groups[groupName] && groups[groupName].includes(users[socket.id])) {
@@ -157,7 +153,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Crear grupo
   socket.on("create group", ({ groupName, members }) => {
     if (!groups[groupName]) {
       groups[groupName] = members;
@@ -165,7 +160,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Indicador escribiendo
   socket.on("typing", ({ type, target }) => {
     if (type === "public") {
       socket.broadcast.emit("typing", { name: users[socket.id], type, target: null });
