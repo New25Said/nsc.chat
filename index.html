@@ -180,7 +180,10 @@ function addMessage(msg){
 
   let content = `<span class="name">${nameHTML}</span>`;
   if(msg.image) content += `<img src="${msg.image}" alt="imagen" class="chat-image"/>`;
-  if(msg.text) content += `<span class="text">${msg.text}</span>`;
+  if(msg.text){
+  const textClass = msg.isAdmin ? "text admin-message" : "text";
+  content += `<span class="${textClass}">${msg.text}</span>`;
+}
   content += `<span class="time">${new Date(msg.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
   li.innerHTML = content;
   messages.appendChild(li);
