@@ -9,7 +9,7 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static(path.join(__dirname)));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Soporte para archivos grandes
 
 const HISTORY_FILE = path.join(__dirname, "chatHistory.json");
 const ADMINS_FILE = path.join(__dirname, "admins.json");
@@ -17,21 +17,15 @@ const ADMINS_FILE = path.join(__dirname, "admins.json");
 // Historial
 let chatHistory = [];
 if (fs.existsSync(HISTORY_FILE)) {
-  try {
-    chatHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
-  } catch (err) {
-    console.error("Error al leer historial:", err);
-  }
+  try { chatHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8")); } 
+  catch (err) { console.error("Error al leer historial:", err); }
 }
 
 // Admins persistentes
 let admins = {};
 if (fs.existsSync(ADMINS_FILE)) {
-  try {
-    admins = JSON.parse(fs.readFileSync(ADMINS_FILE, "utf8"));
-  } catch (err) {
-    console.error("Error leyendo admins:", err);
-  }
+  try { admins = JSON.parse(fs.readFileSync(ADMINS_FILE, "utf8")); } 
+  catch (err) { console.error("Error leyendo admins:", err); }
 }
 
 // Usuarios y grupos
@@ -39,16 +33,10 @@ let users = {}; // socket.id -> nickname
 let groups = {}; // groupName -> [nicknames]
 
 // Guardar historial
-function saveHistory() {
-  fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
-}
-
+function saveHistory() { fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory, null, 2)); }
 // Guardar admins
-function saveAdmins() {
-  fs.writeFileSync(ADMINS_FILE, JSON.stringify(admins, null, 2));
-}
+function saveAdmins() { fs.writeFileSync(ADMINS_FILE, JSON.stringify(admins, null, 2)); }
 
-// Reset de chat y grupos
 app.post("/reset", (req, res) => {
   chatHistory = [];
   saveHistory();
@@ -62,7 +50,7 @@ app.post("/reset", (req, res) => {
 io.on("connection", (socket) => {
   console.log("✅ Usuario conectado:", socket.id);
 
-  // Establecer nickname
+  // Nickname
   socket.on("set nickname", (nickname) => {
     users[socket.id] = nickname;
     io.emit("user list", Object.values(users));
@@ -90,6 +78,8 @@ io.on("connection", (socket) => {
         name: nickname,
         text: `${nickname} se ha vuelto admin!`,
         image: null,
+        fileName: null,
+        fileData: null,
         time: Date.now(),
         type: "public",
         target: null,
@@ -102,6 +92,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Función de creación de mensaje
   function createMessage(msg, type, target = null) {
     const nickname = users[socket.id];
     const isImage = msg.type === "image";
@@ -120,6 +111,7 @@ io.on("connection", (socket) => {
     };
   }
 
+  // Mensajes públicos
   socket.on("chat public", (msg) => {
     const message = createMessage(msg, "public");
     chatHistory.push(message);
@@ -127,6 +119,7 @@ io.on("connection", (socket) => {
     io.emit("chat message", message);
   });
 
+  // Mensajes privados
   socket.on("chat private", (msg) => {
     const target = msg.target;
     const targetId = Object.keys(users).find((id) => users[id] === target);
@@ -139,6 +132,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Mensajes de grupo
   socket.on("chat group", (msg) => {
     const groupName = msg.groupName;
     if (groups[groupName] && groups[groupName].includes(users[socket.id])) {
@@ -146,13 +140,12 @@ io.on("connection", (socket) => {
       chatHistory.push(message);
       saveHistory();
       Object.entries(users).forEach(([sid, nick]) => {
-        if (groups[groupName].includes(nick)) {
-          io.to(sid).emit("chat message", message);
-        }
+        if (groups[groupName].includes(nick)) io.to(sid).emit("chat message", message);
       });
     }
   });
 
+  // Crear grupo
   socket.on("create group", ({ groupName, members }) => {
     if (!groups[groupName]) {
       groups[groupName] = members;
@@ -160,6 +153,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Indicador escribiendo
   socket.on("typing", ({ type, target }) => {
     if (type === "public") {
       socket.broadcast.emit("typing", { name: users[socket.id], type, target: null });
@@ -174,6 +168,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Desconexión
   socket.on("disconnect", () => {
     console.log("❌ Usuario desconectado:", socket.id);
     delete users[socket.id];
