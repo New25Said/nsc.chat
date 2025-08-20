@@ -43,7 +43,7 @@
       <ul id="messages"></ul>
       <div id="input-area">
         <input id="message-input" placeholder="Escribe un mensaje..." autocomplete="off"/>
-        <input type="file" id="image-input" accept="image/*" style="display:none"/>
+        <input type="file" id="image-input" style="display:none"/>
         <button id="image-btn">📎</button>
         <button id="send-btn">➤</button>
       </div>
@@ -88,9 +88,10 @@
     const notificationSound = new Audio("https://ia801505.us.archive.org/10/items/hangouts_sfx/hangouts_message.mp3");
 
     /* ==========================
-       Funciones de imagen
+       Funciones de archivos
     =========================== */
     imageBtn.addEventListener("click", () => imageInput.click());
+    imageInput.removeAttribute("accept"); // permite cualquier tipo
     imageInput.addEventListener("change", () => {
       const file = imageInput.files[0];
       if (!file) return;
@@ -98,10 +99,22 @@
       const reader = new FileReader();
       reader.onload = () => {
         const dataURL = reader.result;
-        if (currentChat === "public") socket.emit("chat public", { type: "image", data: dataURL });
-        else if (currentChat === "private") socket.emit("chat private", { target: currentTarget, text: "", type: "image", data: dataURL });
-        else if (currentChat === "group") socket.emit("chat group", { groupName: currentTarget, text: "", type: "image", data: dataURL });
+        const fileType = file.type;
+        const extension = file.name.split(".").pop().toLowerCase();
+
+        const msgData = {
+          type: "file",
+          fileName: file.name,
+          fileType,
+          extension,
+          data: dataURL
+        };
+
+        if (currentChat === "public") socket.emit("chat public", msgData);
+        else if (currentChat === "private") socket.emit("chat private", { target: currentTarget, text: "", ...msgData });
+        else if (currentChat === "group") socket.emit("chat group", { groupName: currentTarget, text: "", ...msgData });
       };
+
       reader.readAsDataURL(file);
       imageInput.value = "";
     });
@@ -187,10 +200,8 @@
     socket.on("chat message", msg => {
       allMessages.push(msg);
 
-      // Notificación sonora
       if(msg.name !== nickname && document.hidden) notificationSound.play().catch(()=>{});
 
-      // Contador no leídos
       if (msg.type === "private" && msg.name !== nickname) {
         if (currentChat !== "private" || currentTarget !== msg.name) {
           unreadCounts[msg.name] = (unreadCounts[msg.name] || 0) + 1;
@@ -221,7 +232,27 @@
       }
 
       let content = `<span class="name">${nameHTML}</span>`;
-      if(msg.image) content += `<img src="${msg.image}" alt="imagen" class="chat-image"/>`;
+
+      // Vista previa de archivos
+      if (msg.type === "image" && msg.image) {
+        content += `<img src="${msg.image}" alt="imagen" class="chat-image"/>`;
+      }
+      else if (msg.type === "file" && msg.data) {
+        if (msg.fileType.startsWith("image/")) {
+          content += `<img src="${msg.data}" alt="${msg.fileName}" class="chat-image"/>`;
+        } else if (msg.fileType.startsWith("audio/")) {
+          content += `<audio controls src="${msg.data}"></audio>`;
+        } else if (msg.fileType.startsWith("video/")) {
+          content += `<video controls src="${msg.data}" style="max-width:200px;max-height:200px;"></video>`;
+        } else if (msg.extension === "html") {
+          const code = atob(msg.data.split(',')[1]);
+          content += `<pre style="background:#f0f0f0;padding:6px;border-radius:6px;overflow:auto;">${code}</pre>`;
+          content += `<button onclick="navigator.clipboard.writeText(\`${code}\`)">Copiar código</button>`;
+        } else {
+          content += `<span class="text">Archivo: ${msg.fileName}</span>`;
+        }
+      }
+
       if(msg.text) content += `<span class="text">${msg.text}</span>`;
       content += `<span class="time">${new Date(msg.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
 
@@ -233,12 +264,12 @@
     function renderMessages(){
       messages.innerHTML = "";
       allMessages.forEach(msg=>{
-        if(currentChat==="public" && msg.type==="public") addMessage(msg);
-        else if(currentChat==="private" && msg.type==="private"){
+        if(currentChat==="public" && (msg.type==="public" || msg.type==="file" || msg.type==="image")) addMessage(msg);
+        else if(currentChat==="private" && (msg.type==="private" || msg.type==="file" || msg.type==="image")){
           if((msg.name===nickname && msg.target===currentTarget) || (msg.name===currentTarget && msg.target===nickname))
             addMessage(msg);
         }
-        else if(currentChat==="group" && msg.type==="group" && msg.target===currentTarget){
+        else if(currentChat==="group" && (msg.type==="group" || msg.type==="file" || msg.type==="image") && msg.target===currentTarget){
           addMessage(msg);
         }
       });
