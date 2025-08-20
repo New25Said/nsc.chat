@@ -177,7 +177,7 @@ function addMessage(msg){
 function renderMessages(){
   messages.innerHTML="";
   allMessages.forEach(msg=>{
-    if(currentChat==="public" && msg.type==="public" || msg.type==="file") addMessage(msg);
+    if(currentChat==="public" && (msg.type==="public"||msg.type==="file")) addMessage(msg);
     else if(currentChat==="private" && msg.type==="private"){
       if((msg.name===nickname && msg.target===currentTarget) || (msg.name===currentTarget && msg.target===nickname))
         addMessage(msg);
@@ -199,16 +199,25 @@ socket.on("typing", data => {
     window.typingTimeout = setTimeout(()=>typingIndicator.textContent="",2000);
   }
 });
-socket.on("user list", users => { chatList.innerHTML=""; users.forEach(user=>{
-  const li = document.createElement("li"); li.textContent = user; li.className="contact";
-  li.addEventListener("click", ()=>selectChat("private",user));
-  chatList.appendChild(li);
-});});
-socket.on("group list", groups => { groups.forEach(group=>{
-  const li = document.createElement("li"); li.textContent = group; li.className="group";
-  li.addEventListener("click", ()=>selectChat("group",group));
-  chatList.appendChild(li);
-});});
+socket.on("user list", users => { 
+  chatList.innerHTML=""; 
+  users.forEach(user=>{
+    const li = document.createElement("li"); 
+    li.textContent = user; 
+    li.className="contact";
+    li.addEventListener("click", ()=>selectChat("private",user));
+    chatList.appendChild(li);
+  });
+});
+socket.on("group list", groups => { 
+  groups.forEach(group=>{
+    const li = document.createElement("li"); 
+    li.textContent = group; 
+    li.className="group";
+    li.addEventListener("click", ()=>selectChat("group",group));
+    chatList.appendChild(li);
+  });
+});
 
 /* ==========================
    SELECCIONAR CHAT
